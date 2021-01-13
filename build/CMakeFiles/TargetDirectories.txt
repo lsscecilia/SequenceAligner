@@ -1,0 +1,3 @@
+/home/cecilia/Desktop/mapper/build/CMakeFiles/rebuild_cache.dir
+/home/cecilia/Desktop/mapper/build/CMakeFiles/edit_cache.dir
+/home/cecilia/Desktop/mapper/build/CMakeFiles/mapper.dir
