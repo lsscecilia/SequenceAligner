@@ -4,3 +4,6 @@
 [submodule "src/bioparser"]
 	path = src/bioparser
 	url = https://github.com/rvaser/bioparser
+[submodule "3rdparty/bioparser"]
+	path = 3rdparty/bioparser
+	url = https://github.com/rvaser/bioparser.git
