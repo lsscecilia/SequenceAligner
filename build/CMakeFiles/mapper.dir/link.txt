@@ -1,1 +1,0 @@
-/usr/bin/c++     CMakeFiles/mapper.dir/src/main.cpp.o  -o ../bin/mapper 
