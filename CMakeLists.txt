@@ -6,7 +6,8 @@ project(mapper VERSION "1.0")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(SOURCE src/mapper.cpp src/alignment.cpp)
+set(BINARY ${CMAKE_PROJECT_NAME})
+set(SOURCE src/mapper.cpp src/alignment.cpp src/minimizer.cpp)
 set(CONFIGURE_FILE src/config.h.in)
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
@@ -18,10 +19,12 @@ add_executable(${PROJECT_NAME} ${SOURCE})
 
 configure_file( src/config.h.in ${CMAKE_BINARY_DIR}/bin/config.h)
 include_directories( ${CMAKE_BINARY_DIR}/bin/ ) # Make sure it can be included...
-#include_directories(${PARSER_INCLUDES})
 
 if (NOT TARGET bioparser)
   add_subdirectory(3rdparty/bioparser EXCLUDE_FROM_ALL)
 endif ()
 target_link_libraries(mapper PUBLIC bioparser)
+
+
+
 
