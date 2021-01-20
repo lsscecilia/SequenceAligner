@@ -1,18 +1,13 @@
-dist: trusty
-sudo: required
-language: cpp
+--- 
+addons: 
+  apt: 
+    packages: "-gcc-9 -g++-9 -cmake"
+    sources: "-ubuntu-toolchain-r-test"
 compiler: gcc
-
-addons:
-	apt:
-		sources:
-			-ubuntu-toolchain-r-test
-		packages:
-			-gcc-9
-			-g++-9
-			-cmake
-
-script:	
-    - mkdir build
-    - cmake --build build -- -j3
-    - ./bin/mapper_test
+dist: trusty
+language: cpp
+script: 
+  - "mkdir build"
+  - "cmake --build build -- -j3"
+  - ./bin/mapper_test
+sudo: required
