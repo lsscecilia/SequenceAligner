@@ -5,7 +5,5 @@ language: cpp
 
 script:
   - mkdir build
-  - cd build
-  - cmake -DCMAKE_BUILD_TYPE=Release ..
-  - make
+  - cmake --build build -- -j3
   - ./bin/mapper_test
