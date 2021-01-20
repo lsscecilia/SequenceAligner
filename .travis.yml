@@ -2,8 +2,18 @@
 compiler: gcc
 dist: trusty
 language: cpp
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-9
+      - g++-9
+      - cmake
 
 script:
+  - export CC=gcc-9
+  - export CXX=g++-9
   - cmake -H. -Bbuild
   - cmake --build build -- -j3
   - ./bin/mapper_test
