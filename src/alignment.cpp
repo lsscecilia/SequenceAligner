@@ -57,7 +57,7 @@ int SemiGlobalAlgorithm(
 		
         //int diag, up, left, matchValue, max; //0,1,2
         
-        int gMatch, gInsertion, gDeletion, matchValue, max, maxOverall, maxRow; 
+        int gMatch, gInsertion, gDeletion, matchValue, max, maxOverall=0, maxRow; 
         
         int temp; 
 

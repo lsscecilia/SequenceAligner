@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(BINARY ${CMAKE_PROJECT_NAME})
-set(SOURCE src/mapper.cpp src/alignment.cpp src/minimizer.cpp)
+set(SOURCE src/mapper.cpp src/minimizer.cpp src/alignment.cpp)
 set(CONFIGURE_FILE src/config.h.in)
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
@@ -25,6 +25,8 @@ if (NOT TARGET bioparser)
 endif ()
 #target_link_libraries(mapper PUBLIC bioparser)
 
+
+
 add_library(
     alignment src/alignment.cpp
 )
@@ -32,7 +34,6 @@ add_library(
 add_library(
     minimizer src/minimizer.cpp
 )
-
 
 target_link_libraries(
     	mapper
@@ -52,6 +53,9 @@ if (mapper_tests)
 	
 	
 endif(mapper_tests)
+
+
+
 
 
 
