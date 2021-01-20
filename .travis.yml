@@ -4,6 +4,7 @@ dist: trusty
 language: cpp
 script: 
   - mkdir build
-  - cmake --build build -- -j3
+  - cd build
+  - cmake -DCMAKE_BUILD_TYPE=Release ..
+  - make
   - ./bin/mapper_test
-sudo: required
