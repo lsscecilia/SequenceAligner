@@ -123,8 +123,8 @@ int SemiGlobalAlgorithm(
         //traceback + cigar 
         int row=maxRow, column=query_len; 
         std::string uCigar = ""; //uncompresssed cigar
-        cout << "max row" ; 
-        cout << maxRow; 
+        //cout << "max row" ; 
+        //cout << maxRow; 
         
         while(column!=0){
 			//cout << row << endl;

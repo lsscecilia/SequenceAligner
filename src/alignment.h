@@ -1,7 +1,3 @@
-#ifndef FUNCTIONS_H_INCLUDED
-#define FUNCTIONS_H_INCLUDED
-
-
 std::string CompressCigar(std::string uCigar); 
 
 int SemiGlobalAlgorithm(
@@ -38,7 +34,3 @@ int Align(
 	int gap,
 	std::string* cigar,
 	unsigned int* target_begin); 
-	
-
-
-#endif
