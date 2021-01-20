@@ -4,6 +4,6 @@ dist: trusty
 language: cpp
 
 script:
-  - mkdir build
+  - cmake -H. -Bbuild
   - cmake --build build -- -j3
   - ./bin/mapper_test
