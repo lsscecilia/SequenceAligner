@@ -158,7 +158,6 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> MinimizeBinary(
 	allKmer = getAllKmer(sequence, sequence_len, kmer_len, true); 
 	rAllKmer = getAllKmer(sequence, sequence_len, kmer_len, false);
 
-	
 	/*
 	//print kmer
 	for (int i=0; i< allKmer.size();i++){
@@ -187,7 +186,7 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> MinimizeBinary(
 	else{
 		minimizers.push_back(rMinKmer); 
 	}
-	
+
 	/*
 	//print vector
 	cout << "---In vector---" << endl; 
@@ -196,7 +195,7 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> MinimizeBinary(
 		<< " strand : " << get<2>(minimizers[i]) << endl;
 	}
 	cout << "---------------" << endl; 	*/
-	
+
 	//find all other min kmer
 	for (int i=1; i<sequence_len-window_len-1;i++){
 		findMinKmer(allKmer,allKmer[i+window_len-1],window_len,kmer_len, &minKmer,minKmer);

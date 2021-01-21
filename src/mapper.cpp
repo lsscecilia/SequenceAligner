@@ -1,6 +1,9 @@
 #include <iostream>
 #include <cstring>
 #include <getopt.h>
+#include <vector>
+#include <tuple>
+#include <map>
 
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
@@ -8,6 +11,7 @@
 #include "config.h"
 
 #include "alignment.h"
+#include "minimizer_binary.h"
 
 using namespace std;
 
@@ -153,6 +157,21 @@ bool IsFastqFile(std::string file){
 	}
 }
 
+template<typename A, typename B>
+std::pair<B,A> flip_pair(const std::pair<A,B> &p)
+{
+    return std::pair<B,A>(p.second, p.first);
+}
+
+template<typename A, typename B>
+std::multimap<B,A> flip_map(const std::map<A,B> &src)
+{
+    std::multimap<B,A> dst;
+    std::transform(src.begin(), src.end(), std::inserter(dst, dst.begin()), 
+                   flip_pair<A,B>);
+    return dst;
+}
+
 int main (int argc, char **argv){
 	/* getopt_long stores the option index here. */
     int option_index = 0;
@@ -225,6 +244,7 @@ int main (int argc, char **argv){
 		if (IsFastaFile(argv[optind+1])){
 			auto p2 = bioparser::Parser<Sequence>::Create<bioparser::FastaParser>(argv[optind+1]);
             s2 = p2->Parse(-1);
+			cout << "fasta file" << endl; 
             PrintStats(s2);
 		}
 		else if (IsFastqFile(argv[optind+1])){
@@ -249,10 +269,19 @@ int main (int argc, char **argv){
 	
 		
 		//alignment
-		std::vector<std::unique_ptr<Sequence>> shortFragments;  // fragments with length < 5000
+		std::vector<std::unique_ptr	<Sequence>> shortFragments;  // fragments with length < 5000
+		std::vector<std::unique_ptr	<Sequence>> longFragments;
+
+		
 		for (int i=0; i< s2.size(); i++){
+			if (&s2[i]==nullptr){
+				cout << "null pointer" << endl;
+			} 
 			if (s2[i]->data.size() < 5000) {
+				//vec_a.at(0).get();
 				shortFragments.push_back(std::move(s2[i]));
+			}else{
+				longFragments.push_back(std::move(s2[i]));
 			}
 		}
 		
@@ -315,8 +344,145 @@ int main (int argc, char **argv){
 			target_begin, 
 			alignmentScore); 
 			
-		 
 
+		 
+		unsigned int kmer_len = 15, window_len = 5;
+		float f = 0.001; 
+		
+		//find distinct 
+
+		map<unsigned int,unsigned int> minimizerCountS1; 
+		std::map<unsigned int,unsigned int>::iterator it; 
+		std::vector<std::tuple<unsigned int, unsigned int, bool>> minimizerS1;
+		//change to full size
+		minimizerS1 = MinimizeBinary(s1[0]->data.c_str(),s1[0]->data.length(),kmer_len,window_len);
+		
+		//put into map
+		for (int i=0; i<minimizerS1.size(); i++){
+			it = minimizerCountS1.find(get<0>(minimizerS1[i]));
+			if ( it == minimizerCountS1.end() ) {
+			// not found
+				//cout << "not found " << endl; 
+				minimizerCountS1.insert(pair<unsigned int,unsigned int>(get<0>(minimizerS1[i]),1)); 
+
+			} else {
+			// found
+				//cout << "found" << endl;
+				it->second = it->second + 1;
+			}	
+		} 
+		
+		for (int i=0; i<minimizerS1.size(); i++){
+			it = minimizerCountS1.find(get<0>(minimizerS1[i]));
+			if ( it == minimizerCountS1.end() ) {
+			// not found
+				minimizerCountS1.insert(pair<unsigned int,unsigned int>(get<0>(minimizerS1[i]),1)); 
+
+			} else {
+			// found
+				it->second = it->second + 1;
+			}
+		} 
+
+		//print distinct table
+		cout << "\ndistinct table for reference genome : \n"; 
+    	cout << "\tKEY\tELEMENT\n"; 
+		for (it = minimizerCountS1.begin(); it != minimizerCountS1.end(); ++it) { 
+			cout << '\t' << it->first 
+				<< '\t' << it->second << '\n'; 
+		} 
+    	cout << endl; 
+
+		map<unsigned int,unsigned int> minimizerCountS2;
+		std::vector<std::tuple<unsigned int, unsigned int, bool>> minimizerS2;
+
+		cout << "num of long fragments: " << longFragments.size() << endl;
+		cout << "size of short fragment: " << shortFragments.size() << endl; 
+
+		//change to full size; 
+		
+		for (int i=0; i<longFragments.size();i++){
+			cout << "crash?" << endl; 
+			minimizerS2 = MinimizeBinary(longFragments[i]->data.c_str(),longFragments[i]->data.length(),kmer_len,window_len);
+			cout << i <<" flag....." << endl;
+			//put into map
+			for (int i=0; i<minimizerS2.size(); i++){
+				it = minimizerCountS2.find(get<0>(minimizerS2[i]));
+				if ( it == minimizerCountS2.end() ) {
+				// not found
+					//cout << "not found " << endl; 
+					minimizerCountS2.insert(pair<unsigned int,unsigned int>(get<0>(minimizerS2[i]),1)); 
+
+				} else {
+				// found
+					//cout << "found" << endl;
+					it->second = it->second + 1;
+				}	
+			} 
+			cout << "flag..... finish map" << endl;
+
+		}
+
+		//change to full size
+		for (int i=0; i<shortFragments.size();i++){
+			cout << "crash?" << endl; 
+			minimizerS2 = MinimizeBinary(shortFragments[i]->data.c_str(),shortFragments[i]->data.length(),kmer_len,window_len);
+			cout << i <<" flag....." << endl;
+			//put into map
+			for (int i=0; i<minimizerS2.size(); i++){
+				it = minimizerCountS2.find(get<0>(minimizerS2[i]));
+				if ( it == minimizerCountS2.end() ) {
+				// not found
+					//cout << "not found " << endl; 
+					minimizerCountS2.insert(pair<unsigned int,unsigned int>(get<0>(minimizerS2[i]),1)); 
+
+				} else {
+				// found
+					//cout << "found" << endl;
+					it->second = it->second + 1;
+				}	
+			} 
+			cout << "flag..... finish map" << endl;
+
+		}
+
+		//print distinct table
+		cout << "\ndistinct table for fragments is : \n"; 
+    	cout << "\tKEY\tELEMENT\n"; 
+		for (it = minimizerCountS2.begin(); it != minimizerCountS2.end(); ++it) { 
+			cout << '\t' << it->first 
+				<< '\t' << it->second << '\n'; 
+		} 
+    	cout << endl;
+
+		//singleton count
+		
+		int s1SingletonCount=0,s2SingletonCount=0;
+		for (it = minimizerCountS1.begin(); it != minimizerCountS1.end(); ++it) { 
+			if (it->second == 1)
+				s1SingletonCount++; 
+		}     	
+		for (it = minimizerCountS2.begin(); it != minimizerCountS2.end(); ++it) { 
+			if (it->second == 1)
+				s2SingletonCount++; 
+		} 
+		
+		cout << "num minimizer in fragments:" << minimizerCountS2.size() << endl;
+		cout << "num singleton: " << s2SingletonCount << endl; 
+
+		cout << "Singleton Fraction of refence genome: " << (float) s1SingletonCount/minimizerCountS1.size() << endl;
+		cout << "Singleton Fraction of fragments: " << (float) s2SingletonCount/minimizerCountS2.size() << endl;
+
+		//get number of occurrences of the most frequent minimizer
+		//todo: do this for reference genome as well
+		std::vector<int> occurences; 
+		for(auto elem : minimizerCountS2)
+     		occurences.push_back(elem.second);
+		
+		std::sort(occurences.begin(),occurences.end()); 
+		int index = (int) minimizerCountS2.size()*f;
+
+		cout << "number of occurrences of the most frequent minimizer in fragments: " << occurences[index] << endl;
 	}
 	return 0;
 }
