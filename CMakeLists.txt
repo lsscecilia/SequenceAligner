@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(BINARY ${CMAKE_PROJECT_NAME})
-set(SOURCE src/mapper.cpp src/minimizer.cpp src/alignment.cpp)
+set(SOURCE src/alignment.cpp src/mapper.cpp src/minimizer.cpp src/minimizer_binary.cpp src/utility.cpp)
 set(CONFIGURE_FILE src/config.h.in)
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
@@ -25,8 +25,6 @@ if (NOT TARGET bioparser)
 endif ()
 #target_link_libraries(mapper PUBLIC bioparser)
 
-
-
 add_library(
     alignment src/alignment.cpp
 )
@@ -35,11 +33,21 @@ add_library(
     minimizer src/minimizer.cpp
 )
 
+add_library(
+    minimizer_binary src/minimizer_binary.cpp
+)
+
+add_library(
+    utility src/utility.cpp
+)
+
 target_link_libraries(
     	mapper
         bioparser
 	alignment
+	utility
 	minimizer
+	minimizer_binary
 )
 
 #google test
@@ -49,12 +57,9 @@ if (mapper_tests)
 	include_directories(${CMAKE_SOURCE_DIR}/src)
 	add_executable(mapper_test test/alignmentTest.cpp)
 	add_subdirectory(3rdparty/googletest EXCLUDE_FROM_ALL)
-	target_link_libraries(mapper_test alignment minimizer gtest_main)
-	
+	target_link_libraries(mapper_test alignment minimizer minimizer_binary utility gtest_main)
 	
 endif(mapper_tests)
-
-
 
 
 

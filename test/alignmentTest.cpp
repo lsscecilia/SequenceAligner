@@ -2,6 +2,7 @@
 
 #include "alignment.h"
 #include "minimizer.h"
+#include "minimizer_binary.h"
 
 TEST (AlignmentTest,GlobalAlignmentTest){
 	const char * query ="CTCTGTTCG"; 
@@ -33,7 +34,28 @@ TEST (AlignmentTest, SemiGlobalAlignmentTest){
 	EXPECT_EQ(14,SemiGlobalAlgorithm(query,10,target,21,2,-1,-1,&cigar,&target_begin)); 
 }
 	
+TEST( MinimizersBinary, TestTGACGTACATGGACA){
+	std::vector<std::tuple<unsigned int, unsigned int, bool>> minimizers = MinimizeBinary("TGACGTACATGGACA", 15, 3, 4);
+
+	//std::sort(minimizers.begin(), minimizers.end());
+
+	EXPECT_EQ(std::get<0>(minimizers.at(0)), 2);
+	EXPECT_EQ(std::get<1>(minimizers.at(0)), 10);
+	EXPECT_EQ(std::get<2>(minimizers.at(0)), 0);
 	
+	EXPECT_EQ(std::get<0>(minimizers.at(1)), 6);
+	EXPECT_EQ(std::get<1>(minimizers.at(1)), 4);
+	EXPECT_EQ(std::get<2>(minimizers.at(1)), 0);
+	
+	EXPECT_EQ(std::get<0>(minimizers.at(2)), 6);
+	EXPECT_EQ(std::get<1>(minimizers.at(2)), 7);
+	EXPECT_EQ(std::get<2>(minimizers.at(2)), 1);
+	
+	EXPECT_EQ(std::get<0>(minimizers.at(3)), 11);
+	EXPECT_EQ(std::get<1>(minimizers.at(3)), 1);
+	EXPECT_EQ(std::get<2>(minimizers.at(3)), 0);
+}
+
 
 
 TEST (Minimizers, TestTGACGTACATGGACA) {
