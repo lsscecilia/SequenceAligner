@@ -226,6 +226,86 @@ int getNumOccurrencesMostFrequentMinimizer(float f,vector<tuple<int, unsigned in
 	return get<0>(occurrences[index]);
 }
 
+//error 
+vector<tuple<unsigned int, unsigned int, vector<tuple<unsigned int>>>> 
+matchMinimizer(map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex, 
+map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex ){
+	//match from fragment to genome
+	std::map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
+	std::map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator search;
+	vector<tuple<unsigned int, unsigned int, vector<tuple<unsigned int>>>> matchTable; 
+	vector<tuple<unsigned int,bool>> fragmentPosition, refPosition, 
+	fragmentOrigin, fragmentReverse; 
+	vector<tuple<unsigned>>refOrigin, refReverse; 
+
+	cout << "flag" << endl; 
+	//for each fragment
+	for (it = fragmentIndex.begin(); it != fragmentIndex.end(); ++it) { 
+		search = referenceIndex.find(it->first); 
+		if ( search != fragmentIndex.end() ) {
+			//split according to strand
+			fragmentPosition = it->second; 
+			refPosition = search->second; 
+
+			for (int i=0; i< fragmentPosition.size(); i++){
+				//split
+				if (get<1>(fragmentPosition[i])){
+					fragmentOrigin.push_back(fragmentPosition[i]);
+				}
+				else{
+					fragmentReverse.push_back(fragmentPosition[i]); 
+				}				
+			}
+			cout << "after split" << endl; 
+
+			refPosition = search->second; 
+			if (fragmentOrigin.size()!=0 && fragmentReverse.size()!=0){
+				//find reference on origin
+				for (int i=0; i<refPosition.size();i++ ){
+					//split
+					if (get<1>(refPosition[i])){
+						refOrigin.push_back(get<0>(refPosition[i]));
+					}
+					else{
+						refReverse.push_back(get<0>(refPosition[i])); 
+					}
+				}
+				std::sort(refReverse.begin(),refReverse.end()); 
+				std::sort(refOrigin.begin(),refOrigin.end()); 
+			}
+			else if (fragmentOrigin.size()==0){
+				//find reference on origin
+				for (int i=0; i<refPosition.size();i++ ){
+					//split
+					if (!get<1>(refPosition[i])){
+						refReverse.push_back(get<0>(refPosition[i])); 
+					}
+				}
+				std::sort(refReverse.begin(),refReverse.end()); 
+			}
+			else if (fragmentReverse.size()==0){
+				for (int i=0; i<refPosition.size();i++ ){
+					//split
+					if (get<1>(refPosition[i])){
+						refOrigin.push_back(get<0>(refPosition[i]));
+					}
+				}
+				std::sort(refOrigin.begin(),refOrigin.end()); 
+			}
+
+			//create for each minimizer with the difference position
+			for (int i =0; i<fragmentOrigin.size();i++){
+				matchTable.push_back(make_tuple(get<0>(fragmentOrigin[i]),it->first, refOrigin));
+			}
+
+			for (int i=0; i<fragmentReverse.size(); i++){
+				matchTable.push_back(make_tuple( get<0>(fragmentReverse[i]),it->first,refReverse));
+			}
+		} 
+	}
+	return matchTable;
+} 
+
 int main (int argc, char **argv){
 	/* getopt_long stores the option index here. */
     int option_index = 0;
@@ -404,7 +484,7 @@ int main (int argc, char **argv){
 		map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex, fragmentIndex; 
 		
 		//reference genome index
-		//getMinimizer(s1[0], &referenceIndex); 
+		getMinimizer(s1[0], &referenceIndex, kmer_len, window_len); 
 
 
 		cout << "num of long fragments: " << longFragments.size() << endl;
@@ -415,34 +495,68 @@ int main (int argc, char **argv){
 		for (int i=0; i<longFragments.size();i++){
 			getMinimizer(longFragments[i], &fragmentIndex, kmer_len, window_len); 
 		}*/
-		
-		for (int i=0; i<100;i++){
+
+		vector<tuple<std::string, map<unsigned int,vector<tuple<unsigned int,bool>>>>> allFragmentIndex;
+
+		for (int i=0; i<20;i++){
+			fragmentIndex.clear(); 
+
 			getMinimizer(shortFragments[i], &fragmentIndex, kmer_len, window_len);
+			allFragmentIndex.push_back(make_tuple(shortFragments[i]->name, fragmentIndex)); 
+			cout << "find minimizer for fragments ..." << shortFragments[i]->name << endl; 
 		}
+
+		cout<< "fragment index done..." << endl;
 		
+
 		//occurrences 
 		vector<tuple<int, unsigned int>> occurrencesReferenceIndex, occurrencesFragmentIndex;
-		//occurrencesReferenceIndex = getOccurrences(referenceIndex); 
+		occurrencesReferenceIndex = getOccurrences(referenceIndex); 
 		occurrencesFragmentIndex = getOccurrences(fragmentIndex);
 
 		//singleton count
-		//int referenceSingletonCount=getSingletonCount(occurrencesReferenceIndex);
+		int referenceSingletonCount=getSingletonCount(occurrencesReferenceIndex);
 		int fragmentSingletonCount = getSingletonCount(occurrencesFragmentIndex);
 
 		//print result
-		/*
+		
 		cout << "In reference genome: " << endl; 
 		cout << "num minimizer:" << referenceIndex.size() << endl;
 		cout << "num singleton: " << referenceSingletonCount << endl; 
 		cout << "Singleton Fraction of refence genome: " << (float) referenceSingletonCount/referenceIndex.size() << endl;
 		cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesReferenceIndex) << endl;
-		*/
+		
 
+		/*
 		cout << "In fragment genome: " << endl; 
 		cout << "num minimizer:" << fragmentIndex.size() << endl;
 		cout << "num singleton: " << fragmentSingletonCount << endl; 
 		cout << "Singleton Fraction of refence genome: " << (float) fragmentSingletonCount/fragmentIndex.size() << endl;
-		cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesFragmentIndex) << endl;
+		cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesFragmentIndex) << endl;*/
+		cout << "num fragments" << allFragmentIndex.size() << endl; 
+
+		//mapper 
+		vector<tuple<unsigned int, unsigned int, vector<tuple<unsigned int>>>> matchTable;
+
+		//for each fragment 
+		for (int i=0; i< allFragmentIndex.size(); i++){
+			matchTable = matchMinimizer(referenceIndex, get<1>(allFragmentIndex[i])); 
+
+			//sort fragment position
+			std::sort(matchTable.begin(), matchTable.end()); 
+		
+			//find longest linear chain
+
+			//then do alignment (global alignment)
+
+			//in PAF format
+			cout << "before longest linear chain" << endl ; 
+			for (int i=0; i<10; i++){
+				cout << "position: " <<get<0>(matchTable[i]) << " minimizer: " 
+				<< get<1>(matchTable[i]) << " eg reference position: " << get<0>(get<2>(matchTable[i])[0]) << endl;
+			}
+		}
+
 	}
 	return 0;
 }
