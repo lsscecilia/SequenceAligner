@@ -227,33 +227,35 @@ int getNumOccurrencesMostFrequentMinimizer(float f,vector<tuple<int, unsigned in
 }
 
 //error 
-vector<tuple<unsigned int, unsigned int, vector<tuple<unsigned int>>>> 
+vector<tuple<unsigned int, unsigned int, vector<unsigned int>>> 
 matchMinimizer(map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex, 
 map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex ){
 	//match from fragment to genome
 	std::map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 	std::map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator search;
-	vector<tuple<unsigned int, unsigned int, vector<tuple<unsigned int>>>> matchTable; 
+	vector<tuple<unsigned int, unsigned int, vector<unsigned int>>> matchTable; 
 	vector<tuple<unsigned int,bool>> fragmentPosition, refPosition, 
-	fragmentOrigin, fragmentReverse; 
-	vector<tuple<unsigned>>refOrigin, refReverse; 
+	vector<unsigned int> fragmentOrigin, fragmentReverse, refOrigin, refReverse; 
 
 	cout << "flag" << endl; 
 	//for each fragment
 	for (it = fragmentIndex.begin(); it != fragmentIndex.end(); ++it) { 
+		fragmentOrigin.clear(); 
+		fragmentReverse.clear(); 
 		search = referenceIndex.find(it->first); 
 		if ( search != fragmentIndex.end() ) {
+			//found 
 			//split according to strand
 			fragmentPosition = it->second; 
 			refPosition = search->second; 
-
 			for (int i=0; i< fragmentPosition.size(); i++){
 				//split
 				if (get<1>(fragmentPosition[i])){
-					fragmentOrigin.push_back(fragmentPosition[i]);
+					//if origin
+					fragmentOrigin.push_back(get<0>(fragmentPosition[i]));
 				}
 				else{
-					fragmentReverse.push_back(fragmentPosition[i]); 
+					fragmentReverse.push_back(get<0>(fragmentPosition[i])); 
 				}				
 			}
 			cout << "after split" << endl; 
@@ -305,6 +307,26 @@ map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex ){
 	}
 	return matchTable;
 } 
+
+void longestIncreasingSubsequence(vector<tuple<unsigned int, unsigned int, vector<unsigned int>>> matchMinimizer ){
+	/*
+	 a. ind = binary search for index position in LISArr for arr[i]
+    b. LISArr[ind] = i
+    c. if (ind > lastIndex)
+        lastIndex = ind*/
+	
+	//need to do some exception handling 
+
+	//output should just be the start and end position
+	int lastIndex = 1, index; 
+	//vector to store the minimum 
+	vector<unsigned int> longestSubsequence; 
+	for (int i=0; i<matchMinimizer().size(); i++){
+		//binary search 
+		
+	}
+}
+
 
 int main (int argc, char **argv){
 	/* getopt_long stores the option index here. */
