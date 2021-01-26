@@ -3,8 +3,8 @@
 #include <getopt.h>
 #include <vector>
 #include <tuple>
-#include <map>
 #include <algorithm>
+#include <bits/stdc++.h>
 
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
@@ -17,19 +17,6 @@
 #include "minimizer_binary.h"
 
 using namespace std;
-
-static struct option long_options[] = {
-  /* These options don’t set a flag.
-	 We distinguish them by their indices. */
-  {"version", no_argument,       0, 'v'},
-  {"help",  no_argument,       0, 'h'},
-  {"alignment_type",  required_argument, 0, 'a'},
-  {"match",  required_argument, 0, 'm'},
-  {"nomatch",    required_argument, 0, 'n'},
-  {"gap",    required_argument, 0, 'g'},
-  {0, 0, 0, 0}
-};
-
 
 struct Sequence {  // or any other name
 	std::string name;
@@ -160,9 +147,9 @@ bool IsFastqFile(std::string file){
 	}
 }
 
-void getMinimizer(std::unique_ptr<Sequence> & seq, map<unsigned int,vector<tuple<unsigned int,bool>>> *minimizerIndex, int kmer_len, int window_len){
+void getMinimizer(std::unique_ptr<Sequence> & seq, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> *minimizerIndex, int kmer_len, int window_len){
 	std::vector<std::tuple<unsigned int, unsigned int, bool>> minimizer;
-	std::map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
+	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 	tuple<unsigned int, bool> temp; 
 	vector<tuple<unsigned int, bool>> tempVector; 
 	
@@ -191,10 +178,10 @@ void getMinimizer(std::unique_ptr<Sequence> & seq, map<unsigned int,vector<tuple
 	} 
 }
 
-vector<tuple<int, unsigned int>> getOccurrences(map<unsigned int,vector<tuple<unsigned int,bool>>> minimizerIndex){
+vector<tuple<int, unsigned int>> getOccurrences(std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> minimizerIndex){
 	//count, minimizer
 	vector<tuple<int, unsigned int>> occurrences; 
-	std::map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
+	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 	for (it = minimizerIndex.begin(); it != minimizerIndex.end(); ++it) { 
 		occurrences.push_back(make_tuple((it->second).size(), it->first)); 
 	}
@@ -202,7 +189,7 @@ vector<tuple<int, unsigned int>> getOccurrences(map<unsigned int,vector<tuple<un
 }
 
 int getSingletonCount(vector<tuple<int, unsigned int>> occurrences){
-	std::map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
+	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 	int singletonCount=0;
 	for (int i=0; i<occurrences.size();i++){
 		if (get<0>(occurrences[i])==1){
@@ -215,13 +202,25 @@ int getSingletonCount(vector<tuple<int, unsigned int>> occurrences){
 int getNumOccurrencesMostFrequentMinimizer(float f,vector<tuple<int, unsigned int>> occurrences){
 	std::sort(occurrences.begin(),occurrences.end()); 
 	int index = (int) occurrences.size()*f;
-	return get<0>(occurrences[index]);
+	return get<0>(occurrences[occurrences.size()-1-index]);
 }
 
-vector<tuple<unsigned int, unsigned int>> matchMinimizer(map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex, 
-map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex){
-	std::map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
-	std::map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator search;
+std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> ignoreTooFrequentMinimizer(float f,vector<tuple<int, unsigned int>> occurrences, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> minimizerIndex){
+	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it; 
+	
+	std::sort(occurrences.begin(),occurrences.end()); 
+	int index = (int) occurrences.size()*f;
+	int ignoreFrom = occurrences.size()-index; 
+	for (int i=ignoreFrom; i<occurrences.size();i++){
+		minimizerIndex.erase(get<1>(occurrences[i])); 
+	}
+	return minimizerIndex; 
+}
+
+vector<tuple<unsigned int, unsigned int>> matchMinimizer(std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex, 
+std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex){
+	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
+	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator search;
 	vector<tuple<unsigned int, unsigned int>> match; 
 	vector<unsigned int> fragmentOrigin, fragmentReverse, refOrigin, refReverse; 
 
@@ -367,9 +366,9 @@ int getAlignmentBlockLength(string cigar){
 	return sum; 
 }
 
-string mapping(vector<tuple<std::string, map<unsigned int,vector<tuple<unsigned int,bool>>>>> allFragmentIndex, map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex
-,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i){
-	//mapper 
+string mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>>> allFragmentIndex, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex
+,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i, bool cigarNeeded){
+	//std::unordered_mapper 
 	vector<tuple<unsigned int, unsigned int>> matchTable;
 	int t_begin, t_end, q_begin, q_end, lenLIS, result; 
 	string cigar;
@@ -393,27 +392,45 @@ string mapping(vector<tuple<std::string, map<unsigned int,vector<tuple<unsigned 
 	Global,match,mismatch,gap,&cigar,&target_begin);  
 
 	//in PAF format
-	return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), &cigar); 
+	if (cigarNeeded)
+		return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), &cigar); 
+	else
+		return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), nullptr); 
 }
+
+static struct option long_options[] = {
+  /* These options don’t set a flag.
+	 We distinguish them by their indices. */
+  {"version", no_argument,       0, 'v'},
+  {"help",  no_argument,       0, 'h'},
+  {"alignment_type",  required_argument, 0, 'a'},
+  {"match",  required_argument, 0, 'm'},
+  {"nomatch",    required_argument, 0, 'n'},
+  {"gap",    required_argument, 0, 'g'},
+  {"cigar", no_argument, 0, 'c'}, 
+  {"kmer_len", required_argument, 0, 'k'}, 
+  {"window_len", required_argument, 0, 'w'}, 
+  {"thread_num", required_argument, 0, 't'}, 
+  {"frequent", required_argument, 0, 'f'},
+  {0, 0, 0, 0}
+};
 
 int main (int argc, char **argv){
 	/* getopt_long stores the option index here. */
     int option_index = 0;
-	int c;
+	int c=0; 
+	bool cigarNeeded=false;
 	int gap=0,match=1,mismatch=-1, alignmentType=0; 
+	int t= 5; //number of threads
+	unsigned int kmer_len = 15, window_len = 5;
+	float f = 0.001; 
 	/*
 	 * by default 
-	 * gap = 0 
-	 * match = 1 
-	 * mismatch = -1 
-	 * alignmenttype = 0 
 	 * 	0 --> global
 	 *  1 -> local
      *  2 -> semi-global */
 
-	/* Detect the end of the options. */
-	
-	while ((c = getopt_long (argc, argv, "vh:a:m:n:g:",
+	while ((c = getopt_long (argc, argv, "vhc:a:m:n:g:k:w:t:f:",
 				   long_options, &option_index)) != -1){
 	
 		switch (c) {
@@ -426,12 +443,7 @@ int main (int argc, char **argv){
 			  break;
 
 			case 'a':
-				alignmentType = atoi(optarg);
-				/*
-				 * 0 -> global
-				 * 1 -> local
-				 * 2 -> semi-global */
-				
+				alignmentType = atoi(optarg);	
 			  break;
 
 			case 'm':
@@ -445,7 +457,22 @@ int main (int argc, char **argv){
 			case 'g':
 				gap = atoi(optarg);
 				break;
-
+			
+			case 'c':
+				cigarNeeded=true; 
+				break; 
+			case 'k':
+				kmer_len = (unsigned int) atoi(optarg); 
+				break;
+			case 'w':
+				window_len = (unsigned int) atoi(optarg); 
+				break; 
+			case 't':
+				t= atoi(optarg); 
+				break; 
+			case 'f': 
+				f = std::stof(optarg); 
+				break; 
 			case '?':
 			  /* getopt_long already printed an error message. */
 			  break;
@@ -517,8 +544,10 @@ int main (int argc, char **argv){
 		
 		//cout << "marker.." << randomIndex1 << " " << randomIndex2 << endl; 
 		
+		/*
 		unsigned int target_begin; 
-		std::string cigar = "";  
+		std::string cigar = "";  */
+
 		//alignment type
 		
 				
@@ -540,45 +569,36 @@ int main (int argc, char **argv){
 	
 		const char* query = shortFragments[randomIndex1]->data.c_str(); 
 		const char* target = shortFragments[randomIndex2]->data.c_str(); 
-		
-		int alignmentScore = Align(
-			query, shortFragments[randomIndex1]->data.length(),
+		int alignmentScore; 
+		if (cigarNeeded){
+			unsigned int target_begin; 
+			std::string cigar = "";
+			alignmentScore = Align(query, shortFragments[randomIndex1]->data.length(),
 			target, shortFragments[randomIndex2]->data.length(),
-			type,
-			match,
-			mismatch,
-			gap,
-			&cigar,
-			&target_begin); 
+			type,match,mismatch,gap,&cigar,&target_begin); 
+		}
+		else{
+			alignmentScore = Align(query, shortFragments[randomIndex1]->data.length(),
+				target, shortFragments[randomIndex2]->data.length(),
+				type,match,mismatch,gap,nullptr,nullptr); 
+		}
 
-		
-		PrintAlignmentResult(
-			shortFragments[randomIndex1]->name, shortFragments[randomIndex1]->data.length(),
+
+		unsigned int target_begin; 
+		std::string cigar = "";
+
+		PrintAlignmentResult(shortFragments[randomIndex1]->name, shortFragments[randomIndex1]->data.length(),
 			shortFragments[randomIndex2]->name, shortFragments[randomIndex2]->data.length(),
-			type,
-			match,
-			mismatch,
-			gap,
-			cigar, 
-			target_begin, 
-			alignmentScore); 
-			
-
-		 
-		unsigned int kmer_len = 15, window_len = 5;
-		float f = 0.001; 
+			type,match,mismatch,gap,cigar, target_begin, alignmentScore); 
 		
+	
 		//find distinct 
 
-		map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex, fragmentIndex; 
-		std::map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
+		std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex, fragmentIndex; 
+		std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 
 		//reference genome index
 		getMinimizer(s1[0], &referenceIndex, kmer_len, window_len); 
-
-
-		cout << "num of long fragments: " << longFragments.size() << endl;
-		cout << "size of short fragment: " << shortFragments.size() << endl; 
 
 		//fragments genome index
 		/*
@@ -586,18 +606,14 @@ int main (int argc, char **argv){
 			getMinimizer(longFragments[i], &fragmentIndex, kmer_len, window_len); 
 		}*/
 
-		vector<tuple<std::string, map<unsigned int,vector<tuple<unsigned int,bool>>>>> allFragmentIndex;
+		vector<tuple<std::string, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>>> allFragmentIndex;
 
 		for (int i=0; i<shortFragments.size();i++){
 			fragmentIndex.clear(); 
 
 			getMinimizer(shortFragments[i], &fragmentIndex, kmer_len, window_len);
 			allFragmentIndex.push_back(make_tuple(shortFragments[i]->name, fragmentIndex)); 
-			//cout << "find minimizer for fragments ..." << shortFragments[i]->name << endl; 
 		}
-
-		cout<< "fragment index done..." << endl;
-		
 
 		//occurrences 
 		vector<tuple<int, unsigned int>> occurrencesReferenceIndex, occurrencesFragmentIndex;
@@ -613,7 +629,8 @@ int main (int argc, char **argv){
 		cout << "num singleton: " << referenceSingletonCount << endl; 
 		cout << "Singleton Fraction of refence genome: " << (float) referenceSingletonCount/referenceIndex.size() << endl;
 		cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesReferenceIndex) << endl;
-		
+		referenceIndex = ignoreTooFrequentMinimizer(f, occurrencesReferenceIndex, referenceIndex); 
+
 		int fragmentSingletonCount; 
 		for (int i =0; i< allFragmentIndex.size();i++){
 			occurrencesFragmentIndex = getOccurrences(get<1>(allFragmentIndex[i]));
@@ -624,35 +641,22 @@ int main (int argc, char **argv){
 			cout << "num singleton: " << fragmentSingletonCount << endl; 
 			cout << "Singleton Fraction of refence genome: " << (float) fragmentSingletonCount/get<1>(allFragmentIndex[i]).size()  << endl;
 			cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesFragmentIndex) << endl;
+
+			//ignore too frequent minimizer
+			get<1>(allFragmentIndex[i]) = ignoreTooFrequentMinimizer(f, occurrencesFragmentIndex, get<1>(allFragmentIndex[i])); 
+		
 		}
 
 		cout << "------------------------------------------------------------------------------" << endl; 
 
-
-		/*
-		//print ref index
-		for (it=referenceIndex.begin(); it!=referenceIndex.end(); ++it){
-			cout << "minimizer: " <<  it->first << " |positions: " << endl ; 
-			for (int i=0; i<it->second.size();i++){
-				cout << get<0>(it->second[i]) << " orgin: " << get<1>(it->second[i]) << endl; 
-			}
-		}*/
-
-		/*
-		for (int i=0; i<allFragmentIndex.size(); i++){
-			mapping(allFragmentIndex, referenceIndex, match, mismatch, gap, s1, shortFragments, i); 
-		}*/
-
-		int t= 5; //number of threads
 		auto thread_pool = thread_pool::ThreadPool(t);
 
-		//std::shared_ptr<thread_pool::ThreadPool> thread_pool = thread_pool::ThreadPool(t);
 		std::vector<std::future<string>> thread_futures;
 
 		for (int i = 0; i < allFragmentIndex.size(); i++) {
 			thread_futures.emplace_back(
 			thread_pool.Submit(mapping, allFragmentIndex,referenceIndex,
-										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i));
+										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i, cigarNeeded));
 		}
 		
 		for (auto &it: thread_futures) {
