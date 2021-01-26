@@ -4,3 +4,9 @@
 [submodule "3rdparty/googletest"]
 	path = 3rdparty/googletest
 	url = https://github.com/google/googletest
+[submodule "3rdparty/bprinter"]
+	path = 3rdparty/bprinter
+	url = https://github.com/dattanchu/bprinter
+[submodule "3rdparty/thread_pool"]
+	path = 3rdparty/thread_pool
+	url = https://github.com/rvaser/thread_pool

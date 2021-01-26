@@ -12,7 +12,6 @@ set(CONFIGURE_FILE src/config.h.in)
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})	
-#set(PARSER_INCLUDES ${CMAKE_SOURCE_DIR}/3rdparty/bioparser)
 
 #set executable
 add_executable(${PROJECT_NAME} ${SOURCE}) 
@@ -20,10 +19,15 @@ add_executable(${PROJECT_NAME} ${SOURCE})
 configure_file( src/config.h.in ${CMAKE_BINARY_DIR}/bin/config.h)
 include_directories( ${CMAKE_BINARY_DIR}/bin/ ) # Make sure it can be included...
 
+add_subdirectory(3rdparty/bprinter EXCLUDE_FROM_ALL)
+
+if (NOT TARGET thread_pool)
+  add_subdirectory(3rdparty/thread_pool EXCLUDE_FROM_ALL)
+endif ()
+
 if (NOT TARGET bioparser)
   add_subdirectory(3rdparty/bioparser EXCLUDE_FROM_ALL)
 endif ()
-#target_link_libraries(mapper PUBLIC bioparser)
 
 add_library(
     alignment src/alignment.cpp
@@ -42,12 +46,14 @@ add_library(
 )
 
 target_link_libraries(
-    	mapper
+        mapper
         bioparser
+        bprinter
 	alignment
 	utility
 	minimizer
 	minimizer_binary
+	thread_pool
 )
 
 #google test

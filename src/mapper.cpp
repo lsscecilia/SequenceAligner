@@ -8,6 +8,7 @@
 
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
+#include "../3rdparty/bprinter/include/bprinter/table_printer.h"
 
 #include "config.h"
 
@@ -325,6 +326,25 @@ int LongestIncreasingSubsequence(vector<tuple<unsigned int, unsigned int>> &matc
 	return len;
 }
 
+void generatePAFString(string queryName,int queryLen, int queryStart, int queryEnd, 
+	string targetName, int targetLen, int targetStart, int targetEnd, int alignmentScore, 
+	int alignmentBlockLen){
+	cout << "Query name: " << queryName << endl; 
+	cout << "Target name: " << targetName << endl; 
+	bprinter::TablePrinter tp(&std::cout);
+	for (int i=0; i<8; i++){
+		tp.AddColumn("", 5);
+	}
+	tp << queryLen << queryStart << queryEnd << targetLen << 
+	targetStart << targetEnd << alignmentScore << alignmentBlockLen;
+	tp.PrintFooter();
+}
+
+//can put in align function? maybe like overload or smth
+void getAlignmentBlockLength(string cigar){
+
+}
+
 int main (int argc, char **argv){
 	/* getopt_long stores the option index here. */
     int option_index = 0;
@@ -549,7 +569,7 @@ int main (int argc, char **argv){
 
 		/*
 		cout << "In fragment genome: " << endl; 
-		cout << "num minimizer:" << fragmentIndex.size() << endl;
+		cout << "num minimizer:" << frsagmentIndex.size() << endl;
 		cout << "num singleton: " << fragmentSingletonCount << endl; 
 		cout << "Singleton Fraction of refence genome: " << (float) fragmentSingletonCount/fragmentIndex.size() << endl;
 		cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesFragmentIndex) << endl;*/
@@ -567,7 +587,7 @@ int main (int argc, char **argv){
 
 		//mapper 
 		vector<tuple<unsigned int, unsigned int>> matchTable;
-		int t_begin, t_end, q_begin, q_end, lenLIS; 
+		int t_begin, t_end, q_begin, q_end, lenLIS, result; 
 		//for each fragment 
 		for (int i=0; i< allFragmentIndex.size(); i++){
 			/*
@@ -581,8 +601,8 @@ int main (int argc, char **argv){
 			}*/
 
 			matchTable = matchMinimizer(referenceIndex, get<1>(allFragmentIndex[i])); 
-			cout << "before longest linear chain" << endl ; 
-			cout << i <<  " match table size " << matchTable.size() << endl; 
+			//cout << "before longest linear chain" << endl ; 
+			//cout << i <<  " match table size " << matchTable.size() << endl; 
 
 			//sort fragment position
 			if (matchTable.size()>1)
@@ -597,12 +617,12 @@ int main (int argc, char **argv){
 			lenLIS = LongestIncreasingSubsequence(matchTable, matchTable.size(), t_begin,
                                          t_end, q_begin, q_end);
 
-			cout << lenLIS << " -> lens of longest increasing subsequence" << endl;
+			//cout << lenLIS << " -> lens of longest increasing subsequence" << endl;
 
 			
 			//then do alignment (global alignment)
-			string cigar; 
-			unsigned int target_begin;
+
+			/*
 			cout << "FRAG q_begin: " << q_begin << endl; 
 			cout << "FRAG q_end: " << q_end << endl; 		
 			cout << "REF t_begin: " << t_begin << endl; 
@@ -611,23 +631,26 @@ int main (int argc, char **argv){
 
 			cout << "name in fragment index: " <<get<0>(allFragmentIndex[i]) << endl; 
 			cout << "name in the short fragment: " <<shortFragments[i]->name << endl; 
-			cout << "-------------------------------------------------------" << endl; 
+			cout << "-------------------------------------------------------" << endl; */
 			
 			//can do in shortfragment, long fragment order
 
-			int result = 
+			result = 
 			Align(shortFragments[i]->data.substr(q_begin,q_end).c_str(),
 			(unsigned int) q_end - q_begin, s1[0]->data.substr(t_begin,t_end).c_str(),(unsigned int) t_end-t_begin,
 			Global,match,mismatch,gap,&cigar,&target_begin);  
 
+			/*
 			cout << "alignment results: " <<  result << endl;
-			cout << "#########################################" << endl; 
+			cout << "#########################################" << endl; */
 			//find fragment in long fragment/short fragment 
 			//find substring in reference genome and then do alignment
 
 			//in PAF format
-			
+			generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, 10); 
 		}
+
+		
 
 	}
 	return 0;
