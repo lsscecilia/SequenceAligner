@@ -9,6 +9,7 @@
 #include "bioparser/fasta_parser.hpp"
 #include "bioparser/fastq_parser.hpp"
 #include "../3rdparty/bprinter/include/bprinter/table_printer.h"
+#include "thread_pool/thread_pool.hpp"
 
 #include "config.h"
 
@@ -325,24 +326,74 @@ int LongestIncreasingSubsequence(vector<tuple<unsigned int, unsigned int>> &matc
 
 	return len;
 }
-
-void generatePAFString(string queryName,int queryLen, int queryStart, int queryEnd, 
+string generatePAFString(string queryName,int queryLen, int queryStart, int queryEnd, 
 	string targetName, int targetLen, int targetStart, int targetEnd, int alignmentScore, 
-	int alignmentBlockLen){
-	cout << "Query name: " << queryName << endl; 
-	cout << "Target name: " << targetName << endl; 
-	bprinter::TablePrinter tp(&std::cout);
-	for (int i=0; i<8; i++){
-		tp.AddColumn("", 5);
+	int alignmentBlockLen, string* cigar){
+	string paf;
+	
+	paf = "Query name: " + queryName + "\n"+ "Query len: " + to_string(queryLen) + " | Query start: " + to_string(queryStart)
+		+ " | Query end: " + to_string(queryEnd)  + "relative strand: + " +"\n" + "Target name: " + targetName + "\n" + "Target start: " + to_string(targetStart)
+		+ " | Target end: " + to_string(targetEnd) + " | alignment score: " + to_string(alignmentScore) + " | alignment block len: " 
+		+ to_string(alignmentBlockLen) +"\n"; 
+	if (cigar!=nullptr){
+		paf += (" | cigar: " + *cigar); 
 	}
-	tp << queryLen << queryStart << queryEnd << targetLen << 
-	targetStart << targetEnd << alignmentScore << alignmentBlockLen;
-	tp.PrintFooter();
+	paf += "-----------------------------------------------------\n";   
+
+	return paf; 
 }
 
 //can put in align function? maybe like overload or smth
-void getAlignmentBlockLength(string cigar){
+int getAlignmentBlockLength(string cigar){
+	int value,sum=0; 
+	bool prevIsNum = false; 
+	for (int i=0; i < cigar.length(); i++ ){ 
 
+		if ( isdigit(cigar[i]) ){
+			if (!prevIsNum){
+				prevIsNum = true; 
+				value = atoi(cigar.substr(i,1).c_str()); 
+			}
+			else{
+				value = value *10; 
+				value += atoi(cigar.substr(i,1).c_str());
+			}
+		} else{
+			if (prevIsNum){
+				sum += value; 
+			}
+		}
+	}
+	return sum; 
+}
+
+string mapping(vector<tuple<std::string, map<unsigned int,vector<tuple<unsigned int,bool>>>>> allFragmentIndex, map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex
+,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i){
+	//mapper 
+	vector<tuple<unsigned int, unsigned int>> matchTable;
+	int t_begin, t_end, q_begin, q_end, lenLIS, result; 
+	string cigar;
+	unsigned int target_begin; 
+	//for each fragment 
+	matchTable = matchMinimizer(referenceIndex, get<1>(allFragmentIndex[i])); 
+
+	//sort fragment position
+	if (matchTable.size()>1)
+		std::sort(matchTable.begin(), matchTable.end()); 
+
+	//find longest linear chain
+	lenLIS = LongestIncreasingSubsequence(matchTable, matchTable.size(), t_begin, t_end, q_begin, q_end);
+	
+	//then do alignment (global alignment)
+	//can do in shortfragment, long fragment order
+
+	result = 
+	Align(shortFragments[i]->data.substr(q_begin,q_end).c_str(),
+	(unsigned int) q_end - q_begin, s1[0]->data.substr(t_begin,t_end).c_str(),(unsigned int) t_end-t_begin,
+	Global,match,mismatch,gap,&cigar,&target_begin);  
+
+	//in PAF format
+	return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), &cigar); 
 }
 
 int main (int argc, char **argv){
@@ -455,7 +506,6 @@ int main (int argc, char **argv){
 			}
 		}
 		
-		//cout << "short fragment size.."<< shortFragments.size() << endl; 
 		
 		srand((unsigned int)time(NULL));
 		
@@ -552,29 +602,33 @@ int main (int argc, char **argv){
 		//occurrences 
 		vector<tuple<int, unsigned int>> occurrencesReferenceIndex, occurrencesFragmentIndex;
 		occurrencesReferenceIndex = getOccurrences(referenceIndex); 
-		occurrencesFragmentIndex = getOccurrences(fragmentIndex);
 
 		//singleton count
 		int referenceSingletonCount=getSingletonCount(occurrencesReferenceIndex);
-		int fragmentSingletonCount = getSingletonCount(occurrencesFragmentIndex);
-
 		//print result
 		
+		cout << "------------------------------------------------------------------------------" << endl; 
 		cout << "In reference genome: " << endl; 
 		cout << "num minimizer:" << referenceIndex.size() << endl;
 		cout << "num singleton: " << referenceSingletonCount << endl; 
 		cout << "Singleton Fraction of refence genome: " << (float) referenceSingletonCount/referenceIndex.size() << endl;
 		cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesReferenceIndex) << endl;
 		
+		int fragmentSingletonCount; 
+		for (int i =0; i< allFragmentIndex.size();i++){
+			occurrencesFragmentIndex = getOccurrences(get<1>(allFragmentIndex[i]));
+			fragmentSingletonCount = getSingletonCount(occurrencesFragmentIndex);
+			cout << "------------------------------------------------------------------------------" << endl; 
+			cout << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
+			cout << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
+			cout << "num singleton: " << fragmentSingletonCount << endl; 
+			cout << "Singleton Fraction of refence genome: " << (float) fragmentSingletonCount/get<1>(allFragmentIndex[i]).size()  << endl;
+			cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesFragmentIndex) << endl;
+		}
 
-		/*
-		cout << "In fragment genome: " << endl; 
-		cout << "num minimizer:" << frsagmentIndex.size() << endl;
-		cout << "num singleton: " << fragmentSingletonCount << endl; 
-		cout << "Singleton Fraction of refence genome: " << (float) fragmentSingletonCount/fragmentIndex.size() << endl;
-		cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesFragmentIndex) << endl;*/
-		cout << "num fragments" << allFragmentIndex.size() << endl; 
-		
+		cout << "------------------------------------------------------------------------------" << endl; 
+
+
 		/*
 		//print ref index
 		for (it=referenceIndex.begin(); it!=referenceIndex.end(); ++it){
@@ -584,73 +638,27 @@ int main (int argc, char **argv){
 			}
 		}*/
 
+		/*
+		for (int i=0; i<allFragmentIndex.size(); i++){
+			mapping(allFragmentIndex, referenceIndex, match, mismatch, gap, s1, shortFragments, i); 
+		}*/
 
-		//mapper 
-		vector<tuple<unsigned int, unsigned int>> matchTable;
-		int t_begin, t_end, q_begin, q_end, lenLIS, result; 
-		//for each fragment 
-		for (int i=0; i< allFragmentIndex.size(); i++){
-			/*
-			//print fragment index
-			cout << i << endl;
-			for (it=get<1>(allFragmentIndex[i]).begin(); it!=get<1>(allFragmentIndex[i]).end(); ++it){
-				cout << "minimizer: " <<  it->first << " |positions: " << endl ; 
-				for (int r=0; r<it->second.size();r++){
-					cout << get<0>(it->second[r]) << " orgin: " << get<1>(it->second[r]) << endl; 
-				}
-			}*/
+		int t= 5; //number of threads
+		auto thread_pool = thread_pool::ThreadPool(t);
 
-			matchTable = matchMinimizer(referenceIndex, get<1>(allFragmentIndex[i])); 
-			//cout << "before longest linear chain" << endl ; 
-			//cout << i <<  " match table size " << matchTable.size() << endl; 
+		//std::shared_ptr<thread_pool::ThreadPool> thread_pool = thread_pool::ThreadPool(t);
+		std::vector<std::future<string>> thread_futures;
 
-			//sort fragment position
-			if (matchTable.size()>1)
-				std::sort(matchTable.begin(), matchTable.end()); 
-			
-			/*
-			for (int r=0; r<matchTable.size(); r++){
-				cout << "("<<get<0>(matchTable[r])<<","<<get<1>(matchTable[r])<<")" << endl; 
-			}*/
-
-			//find longest linear chain
-			lenLIS = LongestIncreasingSubsequence(matchTable, matchTable.size(), t_begin,
-                                         t_end, q_begin, q_end);
-
-			//cout << lenLIS << " -> lens of longest increasing subsequence" << endl;
-
-			
-			//then do alignment (global alignment)
-
-			/*
-			cout << "FRAG q_begin: " << q_begin << endl; 
-			cout << "FRAG q_end: " << q_end << endl; 		
-			cout << "REF t_begin: " << t_begin << endl; 
-			cout << "REF t_end: " << t_end << endl; 
-
-
-			cout << "name in fragment index: " <<get<0>(allFragmentIndex[i]) << endl; 
-			cout << "name in the short fragment: " <<shortFragments[i]->name << endl; 
-			cout << "-------------------------------------------------------" << endl; */
-			
-			//can do in shortfragment, long fragment order
-
-			result = 
-			Align(shortFragments[i]->data.substr(q_begin,q_end).c_str(),
-			(unsigned int) q_end - q_begin, s1[0]->data.substr(t_begin,t_end).c_str(),(unsigned int) t_end-t_begin,
-			Global,match,mismatch,gap,&cigar,&target_begin);  
-
-			/*
-			cout << "alignment results: " <<  result << endl;
-			cout << "#########################################" << endl; */
-			//find fragment in long fragment/short fragment 
-			//find substring in reference genome and then do alignment
-
-			//in PAF format
-			generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, 10); 
+		for (int i = 0; i < allFragmentIndex.size(); i++) {
+			thread_futures.emplace_back(
+			thread_pool.Submit(mapping, allFragmentIndex,referenceIndex,
+										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i));
 		}
-
 		
+		for (auto &it: thread_futures) {
+			auto paf = it.get();
+			cout << paf; 
+		}
 
 	}
 	return 0;
