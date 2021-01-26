@@ -187,9 +187,9 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> MinimizeBinary(
 		minimizers.push_back(rMinKmer); 
 	}
 
-	/*
+	
 	//print vector
-	cout << "---In vector---" << endl; 
+	/*cout << "---In vector---" << endl; 
 	for (int i =0; i<minimizers.size();i++){
 		cout << "value: " << get<0>(minimizers[i]) << " p: " <<get<1>(minimizers[i])
 		<< " strand : " << get<2>(minimizers[i]) << endl;
@@ -197,7 +197,7 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> MinimizeBinary(
 	cout << "---------------" << endl; 	*/
 
 	//find all other min kmer
-	for (int i=1; i<sequence_len-window_len-1;i++){
+	for (int i=1; i<sequence_len-window_len-kmer_len+2;i++){
 		findMinKmer(allKmer,allKmer[i+window_len-1],window_len,kmer_len, &minKmer,minKmer);
 		findMinKmer(rAllKmer,rAllKmer[i+window_len-1],window_len,kmer_len, &rMinKmer,rMinKmer);
 		
@@ -213,12 +213,13 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> MinimizeBinary(
 			minimizers.push_back(rMinKmer); 
 		}
 		
-		/*
+		
 		//print vector
+		/*
 		cout << "---In vector---" << endl; 
-		for (int i =0; i<minimizers.size();i++){
-			cout << "value: " << get<0>(minimizers[i]) << " p: " <<get<1>(minimizers[i])
-			<< " strand : " << get<2>(minimizers[i]) << endl;
+		for (int r =0; r<minimizers.size();r++){
+			cout << r << " value: " << get<0>(minimizers[r]) << " p: " <<get<1>(minimizers[r])
+			<< " strand : " << get<2>(minimizers[r]) << endl;
 		}
 		cout << "---------------" << endl; 	*/
 	}

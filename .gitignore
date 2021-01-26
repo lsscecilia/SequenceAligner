@@ -5,3 +5,5 @@ MAP006-1_2D_pass.fasta
 sampleRef.fasta
 sampleRef1.fasta
 sampleQuery1.fasta
+testRef.fasta
+testQuery.fasta
