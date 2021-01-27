@@ -148,47 +148,65 @@ bool IsFastqFile(std::string file){
 }
 
 void getMinimizer(std::unique_ptr<Sequence> & seq, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> *minimizerIndex, int kmer_len, int window_len){
-	std::vector<std::tuple<unsigned int, unsigned int, bool>> minimizer;
+	vector<std::tuple<unsigned int, unsigned int, bool>> minimizer;
+	std:vector<std::tuple<unsigned int, unsigned int, bool>>::iterator itm; 
 	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 	tuple<unsigned int, bool> temp; 
 	vector<tuple<unsigned int, bool>> tempVector; 
 	
+	//multi-thread this?
 	minimizer = MinimizeBinary(seq->data.c_str(),seq->data.length(),kmer_len,window_len);
 	
 
-	for (int i=0; i<minimizer.size(); i++){
+	/*
+	auto thread_pool = thread_pool::ThreadPool(5);
+	int split = seq->data.length()/50000; 
+	std::vector<std::future<set<std::tuple<unsigned int, unsigned int, bool>>>> thread_futures;
+
+	cout << "get minimizer flag, split into: " << split << endl; 
+	for (int i = 0; i < split; i++) {
+		thread_futures.emplace_back(
+		thread_pool.Submit(MinimizeBinary, seq->data.substr(i*50000, 2*i*50000).c_str(),50000,kmer_len,window_len));
+	}
+	cout << "after multi-threading" << endl; 
+	for (auto &tf: thread_futures) {
+		auto m = tf.get();
+		minimizer.insert(m.begin(),m.end()); 
+	}*/
+
+	for (itm=minimizer.begin(); itm!=minimizer.end(); ++itm){
 		//cout <<"("<< get<0>(minimizer[i])<<","<<get<1>(minimizer[i])<<","<<get<2>(minimizer[i]) <<")"<< endl; 
 
 		tempVector.clear();
-		it = minimizerIndex->find(get<0>(minimizer[i]));
-		temp = make_tuple(get<1>(minimizer[i]),get<2>(minimizer[i]));
+		it = minimizerIndex->find(get<0>(*itm));
+		temp = make_tuple(get<1>(*itm),get<2>(*itm));
 		if ( it == minimizerIndex->end() ) {
 		// not found
 			//cout << "not found " << endl; 
-			tempVector.push_back(temp); 
+			tempVector.emplace_back(temp); 
 			minimizerIndex->insert(pair<unsigned int,vector<tuple<unsigned int,bool>>>
-			(get<0>(minimizer[i]),tempVector)); 
+			(get<0>(*itm),tempVector)); 
 
 		} else {
 		// found
 			//cout << "found" << endl;
-			(it->second).push_back(temp);
+			(it->second).emplace_back(temp);
 			//cout << it->second << endl; 
 		}	
 	} 
 }
 
-vector<tuple<int, unsigned int>> getOccurrences(std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> minimizerIndex){
+vector<tuple<int, unsigned int>> getOccurrences(std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>& minimizerIndex){
 	//count, minimizer
 	vector<tuple<int, unsigned int>> occurrences; 
 	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 	for (it = minimizerIndex.begin(); it != minimizerIndex.end(); ++it) { 
-		occurrences.push_back(make_tuple((it->second).size(), it->first)); 
+		occurrences.emplace_back(make_tuple((it->second).size(), it->first)); 
 	}
 	return occurrences; 
 }
 
-int getSingletonCount(vector<tuple<int, unsigned int>> occurrences){
+int getSingletonCount(vector<tuple<int, unsigned int>>& occurrences){
 	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 	int singletonCount=0;
 	for (int i=0; i<occurrences.size();i++){
@@ -205,16 +223,16 @@ int getNumOccurrencesMostFrequentMinimizer(float f,vector<tuple<int, unsigned in
 	return get<0>(occurrences[occurrences.size()-1-index]);
 }
 
-std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> ignoreTooFrequentMinimizer(float f,vector<tuple<int, unsigned int>> occurrences, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> minimizerIndex){
+void ignoreTooFrequentMinimizer(float f,vector<tuple<int, unsigned int>>& occurrences, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>& minimizerIndex){
 	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it; 
-	
+	//cout << "before ignore too frequent minimizer: "<< minimizerIndex.size() << endl; 
 	std::sort(occurrences.begin(),occurrences.end()); 
 	int index = (int) occurrences.size()*f;
 	int ignoreFrom = occurrences.size()-index; 
 	for (int i=ignoreFrom; i<occurrences.size();i++){
 		minimizerIndex.erase(get<1>(occurrences[i])); 
 	}
-	return minimizerIndex; 
+	//cout << "after ignore too frequent minimizer: " << minimizerIndex.size() << endl; 
 }
 
 vector<tuple<unsigned int, unsigned int>> matchMinimizer(std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex, 
@@ -237,11 +255,11 @@ std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex)
 			for (int i=0; i< it->second.size(); i++){
 				if (get<1>(it->second[i])){
 					//if origin
-					fragmentOrigin.push_back(get<0>(it->second[i]));
+					fragmentOrigin.emplace_back(get<0>(it->second[i]));
 					//cout << "frag origin:1 " <<  get<0>(it->second[i]) << endl; 
 				}
 				else{
-					fragmentReverse.push_back(get<0>(it->second[i])); 
+					fragmentReverse.emplace_back(get<0>(it->second[i])); 
 					//cout << "frag origin:0" <<  get<0>(it->second[i]) << endl; 
 				}				
 			}
@@ -249,24 +267,24 @@ std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex)
 			for (int i=0; i<search->second.size();i++ ){
 				//if origin
 				if (get<1>(search->second[i])){
-					refOrigin.push_back(get<0>(search->second[i]));
+					refOrigin.emplace_back(get<0>(search->second[i]));
 					//cout << "ref origin:0" <<  get<0>(search->second[i]) << endl; 
 				}
 				else{
-					refReverse.push_back(get<0>(search->second[i])); 
+					refReverse.emplace_back(get<0>(search->second[i])); 
 					//cout << "ref origin:0" <<  get<0>(search->second[i]) << endl; 
 				}
 			}
 
 			for (int i=0; i< fragmentOrigin.size(); i++){
 				for (int r=0; r<refOrigin.size(); r++){
-					match.push_back(make_tuple(fragmentOrigin[i], refOrigin[r])); 
+					match.emplace_back(make_tuple(fragmentOrigin[i], refOrigin[r])); 
 				}
 			}
 
 			for (int i=0; i< fragmentReverse.size(); i++){
 				for (int r=0; r<refReverse.size(); r++){
-					match.push_back(make_tuple(fragmentReverse[i], refReverse[r])); 
+					match.emplace_back(make_tuple(fragmentReverse[i], refReverse[r])); 
 				}
 			}
 		}
@@ -292,14 +310,22 @@ int CeilIndex(vector<tuple<unsigned int,unsigned int>> &matches, vector<unsigned
 int LongestIncreasingSubsequence(vector<tuple<unsigned int, unsigned int>> &matches, int n,
                                  int &t_begin, int &t_end, int &q_begin,
                                  int &q_end) {
-	if (n<=1)
+	if (n==0)
+		return 0; 
+
+	if (n==1){
+		t_begin = get<1>(matches[0]);
+		q_begin = get<0>(matches[0]);
 		return n; 
+	}
 	
+	cout << "what is happening again...." << endl; 
+	cout << "match table size " << n << endl; 
 	vector<unsigned int> tailIndices(n, 0);
 	vector<unsigned int> prevIndices(n, -1);
 
 	int len = 1;
-	for (int i = 1; i < n; i++) {
+	for (int i = 0; i < n; i++) {
 	if (get<1>(matches[i])< get<1>(matches[tailIndices[0]])) {
 		// new smallest value
 		tailIndices[0] = i;
@@ -308,20 +334,40 @@ int LongestIncreasingSubsequence(vector<tuple<unsigned int, unsigned int>> &matc
 		prevIndices[i] = tailIndices[len - 1];
 		tailIndices[len++] = i;
 	} else {
-		// matches[i].second wants to be a potential condidate of
-		// future subsequence
-		// It will replace ceil value in tailIndices
-		int pos =
-			CeilIndex(matches, tailIndices, -1, len - 1, get<1>(matches[i]));
+		int pos = CeilIndex(matches, tailIndices, -1, len - 1, get<1>(matches[i]));
 
 		prevIndices[i] = tailIndices[pos - 1];
 		tailIndices[pos] = i;
 	}
 	}
+
+	cout << "tail indicies" << endl; 
+	for (int i=0; i<tailIndices.size(); i++){
+		cout << tailIndices[i] << endl; 
+	}
+
+	cout << "prev indicies" << endl ; 
+	for (int i=0; i<prevIndices.size();i++){
+		cout << prevIndices[i] << endl; 
+	}
+	//if (len==1)
+	//cout << "len" << len << endl;
+	//cout << "matches size: " << matches.size() << endl;
+	//cout << "prev indicies size" << prevIndices.size()<< endl;
+	//cout << "... ++" << prevIndices[1] << endl; 
+	//cout << "is the stupid t_begin" << endl; 
 	t_begin = get<1>(matches[prevIndices[1]]);
+	//cout << "flag 1" << endl; 
 	q_begin = get<0>(matches[prevIndices[1]]);
+	//cout << "flag 2" << endl; 
 	t_end = get<1>(matches[tailIndices[len - 1]]);
+	//cout << "flag 3" << endl; 
 	q_end = get<0>(matches[tailIndices[len - 1]]);
+	//cout << "t_begin" << t_begin << endl;
+	//cout << "q_begin" << q_begin << endl; 
+	//cout  << "t_end" << t_end << endl; 
+	//cout << "q_end" << q_end << endl; 
+	//cout << "end..." << endl; 
 
 	return len;
 }
@@ -329,13 +375,12 @@ string generatePAFString(string queryName,int queryLen, int queryStart, int quer
 	string targetName, int targetLen, int targetStart, int targetEnd, int alignmentScore, 
 	int alignmentBlockLen, string* cigar){
 	string paf;
-	
 	paf = "Query name: " + queryName + "\n"+ "Query len: " + to_string(queryLen) + " | Query start: " + to_string(queryStart)
-		+ " | Query end: " + to_string(queryEnd)  + "relative strand: + " +"\n" + "Target name: " + targetName + "\n" + "Target start: " + to_string(targetStart)
+		+ " | Query end: " + to_string(queryEnd)  + "| relative strand: + " +"\n" + "Target name: " + targetName + "\n" + "Target start: " + to_string(targetStart)
 		+ " | Target end: " + to_string(targetEnd) + " | alignment score: " + to_string(alignmentScore) + " | alignment block len: " 
 		+ to_string(alignmentBlockLen) +"\n"; 
 	if (cigar!=nullptr){
-		paf += (" | cigar: " + *cigar); 
+		paf += ("| cigar: " + *cigar + "\n"); 
 	}
 	paf += "-----------------------------------------------------\n";   
 
@@ -344,7 +389,8 @@ string generatePAFString(string queryName,int queryLen, int queryStart, int quer
 
 //can put in align function? maybe like overload or smth
 int getAlignmentBlockLength(string cigar){
-	int value,sum=0; 
+	
+	int value=0,sum=0; 
 	bool prevIsNum = false; 
 	for (int i=0; i < cigar.length(); i++ ){ 
 
@@ -360,6 +406,7 @@ int getAlignmentBlockLength(string cigar){
 		} else{
 			if (prevIsNum){
 				sum += value; 
+				prevIsNum=false; 
 			}
 		}
 	}
@@ -370,32 +417,46 @@ string mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<
 ,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i, bool cigarNeeded){
 	//std::unordered_mapper 
 	vector<tuple<unsigned int, unsigned int>> matchTable;
-	int t_begin, t_end, q_begin, q_end, lenLIS, result; 
+	int t_begin, t_end, q_begin, q_end, lenLIS, result, alignmentRefLength, alignmentQueryLength; 
 	string cigar;
 	unsigned int target_begin; 
+	cout << "wtf is happening.."  << endl; 
 	//for each fragment 
 	matchTable = matchMinimizer(referenceIndex, get<1>(allFragmentIndex[i])); 
 
 	//sort fragment position
 	if (matchTable.size()>1)
 		std::sort(matchTable.begin(), matchTable.end()); 
-
+	
+	cout << "wtf is happening. 1."  << endl; 
 	//find longest linear chain
 	lenLIS = LongestIncreasingSubsequence(matchTable, matchTable.size(), t_begin, t_end, q_begin, q_end);
+
+	alignmentRefLength = t_end-t_begin; 
+	alignmentQueryLength = q_end - q_begin; 
+
+	cout << "before alignment.." << endl; 	
+	if (lenLIS!=0 && alignmentRefLength<1000000){
+		//then do alignment (global alignment)
+		//can do in shortfragment, long fragment order
+		result = 
+		Align(shortFragments[i]->data.substr(q_begin,q_end).c_str(),
+		(unsigned int) q_end - q_begin, s1[0]->data.substr(t_begin,t_end).c_str(),(unsigned int) t_end-t_begin,
+		Global,match,mismatch,gap,&cigar,&target_begin);  
+		//in PAF format
+		if (cigarNeeded)
+			return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), &cigar); 
+		else
+			return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), nullptr); 
+	}
+	else{
+		cigar=""; 
+		if (cigarNeeded)
+			return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), -1, -1, s1[0]->name, s1[0]->data.length(), -1, -1, 0, 0, &cigar);
+		else
+			return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), -1, -1, s1[0]->name, s1[0]->data.length(), -1, -1, 0, 0, nullptr);
+	}
 	
-	//then do alignment (global alignment)
-	//can do in shortfragment, long fragment order
-
-	result = 
-	Align(shortFragments[i]->data.substr(q_begin,q_end).c_str(),
-	(unsigned int) q_end - q_begin, s1[0]->data.substr(t_begin,t_end).c_str(),(unsigned int) t_end-t_begin,
-	Global,match,mismatch,gap,&cigar,&target_begin);  
-
-	//in PAF format
-	if (cigarNeeded)
-		return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), &cigar); 
-	else
-		return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), nullptr); 
 }
 
 static struct option long_options[] = {
@@ -527,9 +588,9 @@ int main (int argc, char **argv){
 			} 
 			if (s2[i]->data.size() < 5000) {
 				//vec_a.at(0).get();
-				shortFragments.push_back(std::move(s2[i]));
+				shortFragments.emplace_back(std::move(s2[i]));
 			}else{
-				longFragments.push_back(std::move(s2[i]));
+				longFragments.emplace_back(std::move(s2[i]));
 			}
 		}
 		
@@ -598,6 +659,7 @@ int main (int argc, char **argv){
 		std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 
 		//reference genome index
+		//cout << "length of sequence .." << s1[0]->data.length() << endl; 
 		getMinimizer(s1[0], &referenceIndex, kmer_len, window_len); 
 
 		//fragments genome index
@@ -612,7 +674,7 @@ int main (int argc, char **argv){
 			fragmentIndex.clear(); 
 
 			getMinimizer(shortFragments[i], &fragmentIndex, kmer_len, window_len);
-			allFragmentIndex.push_back(make_tuple(shortFragments[i]->name, fragmentIndex)); 
+			allFragmentIndex.emplace_back(make_tuple(shortFragments[i]->name, fragmentIndex)); 
 		}
 
 		//occurrences 
@@ -629,13 +691,21 @@ int main (int argc, char **argv){
 		cout << "num singleton: " << referenceSingletonCount << endl; 
 		cout << "Singleton Fraction of refence genome: " << (float) referenceSingletonCount/referenceIndex.size() << endl;
 		cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesReferenceIndex) << endl;
-		referenceIndex = ignoreTooFrequentMinimizer(f, occurrencesReferenceIndex, referenceIndex); 
+		ignoreTooFrequentMinimizer(f, occurrencesReferenceIndex, referenceIndex); 
 
 		int fragmentSingletonCount; 
+		cout << "fragment index size: "<< allFragmentIndex.size(); 
+
+		//allFragmentIndex.size()
 		for (int i =0; i< allFragmentIndex.size();i++){
+			cout << "sheme..." << endl; 
+			cout << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
+			cout << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
 			occurrencesFragmentIndex = getOccurrences(get<1>(allFragmentIndex[i]));
+			cout << "$$ occurance fragment index" << occurrencesFragmentIndex.size() << endl; 
 			fragmentSingletonCount = getSingletonCount(occurrencesFragmentIndex);
 			cout << "------------------------------------------------------------------------------" << endl; 
+			cout << i << endl;
 			cout << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
 			cout << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
 			cout << "num singleton: " << fragmentSingletonCount << endl; 
@@ -643,15 +713,21 @@ int main (int argc, char **argv){
 			cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesFragmentIndex) << endl;
 
 			//ignore too frequent minimizer
-			get<1>(allFragmentIndex[i]) = ignoreTooFrequentMinimizer(f, occurrencesFragmentIndex, get<1>(allFragmentIndex[i])); 
-		
+			ignoreTooFrequentMinimizer(f, occurrencesFragmentIndex, get<1>(allFragmentIndex[i])); 
 		}
 
 		cout << "------------------------------------------------------------------------------" << endl; 
 
+		for (int i=0; i<allFragmentIndex.size();i++){
+			cout << i << " --->" << mapping(allFragmentIndex, referenceIndex ,match, mismatch, gap, s1,shortFragments, i, cigarNeeded); 
+		}
+		
+		/*
 		auto thread_pool = thread_pool::ThreadPool(t);
 
 		std::vector<std::future<string>> thread_futures;
+
+		//cout << "multi-threading" << endl; 
 
 		for (int i = 0; i < allFragmentIndex.size(); i++) {
 			thread_futures.emplace_back(
@@ -659,10 +735,12 @@ int main (int argc, char **argv){
 										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i, cigarNeeded));
 		}
 		
+		//cout << "after multi threading.." << endl; 
+
 		for (auto &it: thread_futures) {
 			auto paf = it.get();
 			cout << paf; 
-		}
+		}*/
 
 	}
 	return 0;

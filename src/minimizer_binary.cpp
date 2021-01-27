@@ -3,6 +3,7 @@
 #include <vector>
 #include <tuple>
 #include <algorithm>
+#include <set>
 
 #include "minimizer.h"
 #include "utility.h"
@@ -98,17 +99,17 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> getAllKmer(const char*
 	kmerValue = initFirstKmer(stringSeq.substr(0,kmer_len),kmer_len,seq); 
 	mask = getMask(kmer_len); 
 	//put into vector
-	kmerList.push_back(make_tuple((unsigned int) kmerValue, 0, seq)); 
+	kmerList.emplace_back(make_tuple((unsigned int) kmerValue, 0, seq)); 
 	
 	for (int i=1; i<sequence_len-kmer_len+1; i++){
 		kmerValue = getKmer(kmerValue,mask, stringSeq[i+kmer_len-1],seq); 
 		//put into vector
-		kmerList.push_back(make_tuple((unsigned int) kmerValue, i, seq)); 
+		kmerList.emplace_back(make_tuple((unsigned int) kmerValue, i, seq)); 
 	}
 	return kmerList; 
 }
 
-void initFindMinKmer(std::vector<std::tuple<unsigned int, unsigned int, bool>> kmerList, 
+void initFindMinKmer(const std::vector<std::tuple<unsigned int, unsigned int, bool>>& kmerList, 
 	int window_len,std::tuple<unsigned int, unsigned int, bool>* minKmer, int start){
 	int kmerValue;
 	*minKmer = kmerList[start];
@@ -121,10 +122,10 @@ void initFindMinKmer(std::vector<std::tuple<unsigned int, unsigned int, bool>> k
 	}
 }
 	
-void findMinKmer(std::vector<std::tuple<unsigned int, unsigned int, bool>> kmerList,
-std::tuple<unsigned int, unsigned int, bool> nextKmer, 
+void findMinKmer(const std::vector<std::tuple<unsigned int, unsigned int, bool>>& kmerList,
+std::tuple<unsigned int, unsigned int, bool>& nextKmer, 
 int window_len,int kmer_len, std::tuple<unsigned int, unsigned int, bool>* minKmer, 
-std::tuple<unsigned int, unsigned int, bool> prevMinKmer){
+std::tuple<unsigned int, unsigned int, bool>& prevMinKmer){
 	int kmerValue = get<0>(nextKmer);
 	int kmerIndex = get<1>(nextKmer); 
 	int substringLen = window_len + kmer_len - 1; 
@@ -152,7 +153,8 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> MinimizeBinary(
     unsigned int kmer_len,
     unsigned int window_len){
 
-	std::vector<std::tuple<unsigned int, unsigned int, bool>> allKmer, rAllKmer, minimizers;
+	std::vector<std::tuple<unsigned int, unsigned int, bool>> allKmer, rAllKmer;
+	std::vector<std::tuple<unsigned int, unsigned int, bool>> minimizers;
 	std::tuple<unsigned int, unsigned int, bool> minKmer, rMinKmer;
 	//get all Kmer
 	allKmer = getAllKmer(sequence, sequence_len, kmer_len, true); 
@@ -178,15 +180,14 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> MinimizeBinary(
 	initFindMinKmer(rAllKmer,window_len, &rMinKmer, 0);
 	//cout << "first min kmer: " << get<0>(minKmer) << " p: "<<get<1>(minKmer)<< endl; 
 	//cout << "first rMin kmer: " << get<0>(rMinKmer) << " p: "<<get<1>(rMinKmer)<< endl; 
-	
+
 	//put into vector 
 	if (get<0>(minKmer) < get<0>(rMinKmer)){
-		minimizers.push_back(minKmer); 
+		minimizers.emplace_back(minKmer); 
 	}
 	else{
-		minimizers.push_back(rMinKmer); 
+		minimizers.emplace_back(rMinKmer); 
 	}
-
 	
 	//print vector
 	/*cout << "---In vector---" << endl; 
@@ -198,7 +199,7 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> MinimizeBinary(
 
 	//find all other min kmer
 	for (int i=1; i<sequence_len-window_len-kmer_len+2;i++){
-		cout << i << "finding minimizer.." << endl; 
+		//cout << i << "finding minimizer.." << endl; 
 		findMinKmer(allKmer,allKmer[i+window_len-1],window_len,kmer_len, &minKmer,minKmer);
 		findMinKmer(rAllKmer,rAllKmer[i+window_len-1],window_len,kmer_len, &rMinKmer,rMinKmer);
 		
@@ -206,14 +207,15 @@ std::vector<std::tuple<unsigned int, unsigned int, bool>> MinimizeBinary(
 		cout << i <<" min kmer: " << get<0>(minKmer) << " p: "<<get<1>(minKmer)<< endl; 
 		cout << i <<" rMin kmer: " << get<0>(rMinKmer) << " p: "<<get<1>(rMinKmer)<< endl; 
 		*/
+
+		
 		//put into vector 
 		if (get<0>(minKmer) < get<0>(rMinKmer)){
-			minimizers.push_back(minKmer); 
+			minimizers.emplace_back(minKmer); 
 		}
 		else{
-			minimizers.push_back(rMinKmer); 
+			minimizers.emplace_back(rMinKmer); 
 		}
-		
 		
 		//print vector
 		/*

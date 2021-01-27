@@ -336,10 +336,8 @@ int NeedlemanWunschAlgorithm(
     int gap, std::string* cigar, unsigned int* target_begin){
 		
 		//initialise score table 
-		//matrix scoreTable[target_len+1][query_len+1]; //row x column   
 		vector<vector<matrix>> scoreTable( target_len+1 , vector<matrix> (query_len+1)); 
 
-		
 		//initialise values with gap 
         for (int i=1; i<=target_len;i++){
             scoreTable[i][0]={gap*i, Up}; //initialise values
@@ -356,7 +354,6 @@ int NeedlemanWunschAlgorithm(
         int temp; 
 
 		
-			
         for (int i=1; i<=target_len; i++){
             for (int r=1; r<=query_len; r++){
 				/*
@@ -447,7 +444,6 @@ int NeedlemanWunschAlgorithm(
 				//cout << "deletetion" << endl; 
 			}
 		}
-		//cout << uCigar <<endl; 
 		std::string tempCigar ; 
 		if (cigar != nullptr){
 			tempCigar = CompressCigar(uCigar); 
@@ -480,8 +476,6 @@ int Align(
 	int gap,
 	std::string* cigar,
 	unsigned int* target_begin){
-	
-	
 	if (type == Global){
 		return NeedlemanWunschAlgorithm(query,query_len,target,target_len,match,mismatch,gap,cigar,target_begin); 
 	}
