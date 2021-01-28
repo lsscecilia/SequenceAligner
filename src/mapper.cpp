@@ -157,23 +157,6 @@ void getMinimizer(std::unique_ptr<Sequence> & seq, std::unordered_map<unsigned i
 	//multi-thread this?
 	minimizer = MinimizeBinary(seq->data.c_str(),seq->data.length(),kmer_len,window_len);
 	
-
-	/*
-	auto thread_pool = thread_pool::ThreadPool(5);
-	int split = seq->data.length()/50000; 
-	std::vector<std::future<set<std::tuple<unsigned int, unsigned int, bool>>>> thread_futures;
-
-	cout << "get minimizer flag, split into: " << split << endl; 
-	for (int i = 0; i < split; i++) {
-		thread_futures.emplace_back(
-		thread_pool.Submit(MinimizeBinary, seq->data.substr(i*50000, 2*i*50000).c_str(),50000,kmer_len,window_len));
-	}
-	cout << "after multi-threading" << endl; 
-	for (auto &tf: thread_futures) {
-		auto m = tf.get();
-		minimizer.insert(m.begin(),m.end()); 
-	}*/
-
 	for (itm=minimizer.begin(); itm!=minimizer.end(); ++itm){
 		//cout <<"("<< get<0>(minimizer[i])<<","<<get<1>(minimizer[i])<<","<<get<2>(minimizer[i]) <<")"<< endl; 
 
@@ -217,7 +200,7 @@ int getSingletonCount(vector<tuple<int, unsigned int>>& occurrences){
 	return singletonCount; 
 }
 
-int getNumOccurrencesMostFrequentMinimizer(float f,vector<tuple<int, unsigned int>> occurrences){
+int getNumOccurrencesMostFrequentMinimizer(float f,vector<tuple<int, unsigned int>>& occurrences){
 	std::sort(occurrences.begin(),occurrences.end()); 
 	int index = (int) occurrences.size()*f;
 	return get<0>(occurrences[occurrences.size()-1-index]);
@@ -235,13 +218,13 @@ void ignoreTooFrequentMinimizer(float f,vector<tuple<int, unsigned int>>& occurr
 	//cout << "after ignore too frequent minimizer: " << minimizerIndex.size() << endl; 
 }
 
-vector<tuple<unsigned int, unsigned int>> matchMinimizer(std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex, 
-std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex){
+vector<tuple<unsigned int, unsigned int>> matchMinimizer(std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>& referenceIndex, 
+std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>& fragmentIndex){
 	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator search;
 	vector<tuple<unsigned int, unsigned int>> match; 
 	vector<unsigned int> fragmentOrigin, fragmentReverse, refOrigin, refReverse; 
-
+	//cout  << "into minimizer..." << endl; 
 	for (it = fragmentIndex.begin(); it != fragmentIndex.end(); ++it){
 		fragmentOrigin.clear();
 		fragmentReverse.clear();
@@ -275,6 +258,10 @@ std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex)
 					//cout << "ref origin:0" <<  get<0>(search->second[i]) << endl; 
 				}
 			}
+			
+			//sort refOrign, refReverse
+			std::sort(refOrigin.begin(), refOrigin.end()); 
+			std::sort(refReverse.begin(), refReverse.end()); 
 
 			for (int i=0; i< fragmentOrigin.size(); i++){
 				for (int r=0; r<refOrigin.size(); r++){
@@ -287,8 +274,24 @@ std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex)
 					match.emplace_back(make_tuple(fragmentReverse[i], refReverse[r])); 
 				}
 			}
+
+			
 		}
+
+		
+
 	}
+	std::sort(match.begin(), match.end()); 
+
+	/*	
+	//print match table
+	cout << "****MATCH TABLE*****" <<  endl; 
+	for (int i=0; i<match.size(); i++){
+		cout << "fragment: " <<get<0>(match[i]) << " ref: "<<get<1>(match[i]) << endl; 
+	}
+
+	cout << "******************************************" << endl;*/
+
 	return match; 
 }
 
@@ -306,41 +309,146 @@ int CeilIndex(vector<tuple<unsigned int,unsigned int>> &matches, vector<unsigned
   return r;
 }
 
-  
-int LongestIncreasingSubsequence(vector<tuple<unsigned int, unsigned int>> &matches, int n,
-                                 int &t_begin, int &t_end, int &q_begin,
+//vector<int> const& a
+int LongestIncreasingSubsequence(vector<tuple<unsigned int, unsigned int>> const& matches, int &t_begin, int &t_end, int &q_begin,
                                  int &q_end) {
+
+
+	
+		
+	int n = matches.size();
+    const int INF = 1e9;
+    vector<int> parent(n+1, INF);  //Tracking the predecessors/parents of elements of each subsequence.
+	vector<int> increasingSub(n+1, INF); 
+ //Tracking ends of each increasing subsequence.
+    int length = 0; //Length of longest subsequence.
+
 	if (n==0)
 		return 0; 
 
 	if (n==1){
 		t_begin = get<1>(matches[0]);
 		q_begin = get<0>(matches[0]);
+		t_end = get<1>(matches[0]);
+		q_begin = get<0>(matches[0]);
+		return n; 
+	}
+
+	for(int i=0; i< n; i++)
+	{
+		//Binary search
+		int low = 1;
+		int high = length;
+		while(low <= high)
+		{
+			int mid = (int) ceil((low + high)/2);
+				
+			if(get<1>(matches[increasingSub[mid]]) < get<1>(matches[i]))
+				low = mid + 1;
+			else
+				high = mid - 1;
+		}
+			
+		int pos = low;
+		//update parent/previous element for LIS
+		parent[i] = increasingSub[pos-1];
+		//Replace or append
+		increasingSub[pos] =  i;
+			
+		//Update the length of the longest subsequence.
+		if(pos > length)
+			length=pos;
+	}
+		
+	//Generate LIS by traversing parent array
+	vector<int> refList(length, INF); 
+	vector<int> fragList(length,INF); 
+	//int LIS[] = new int[length];
+	int k   = increasingSub[length];
+	for(int j=length-1; j>=0; j--)
+	{
+		refList[j] =  get<1>(matches[k]);
+		fragList[j] = get<0>(matches[k]); 
+		k = parent[k];
+	}
+
+	t_begin = refList[0]; 
+	t_end = refList[length-1]; 
+	q_begin = fragList[0]; 
+	q_end = fragList[length-1]; 
+	//restore 
+	/*
+	cout << "t_begin" << t_begin << endl;
+	cout << "q_begin" << q_begin << endl; 
+	cout  << "t_end" << t_end << endl; 
+	cout << "q_end" << q_end << endl; 
+	cout << "end..." << endl; 
+	cout << "len: " << length << endl; */
+    return length;
+}
+
+/*
+int LongestIncreasingSubsequence(vector<tuple<unsigned int, unsigned int>> &matches, int n,
+                                 int &t_begin, int &t_end, int &q_begin,
+                                 int &q_end) {
+	
+	if (n==0)
+		return 0; 
+
+	if (n==1){
+		t_begin = get<1>(matches[0]);
+		q_begin = get<0>(matches[0]);
+		t_end = get<1>(matches[0]);
+		q_begin = get<0>(matches[0]);
 		return n; 
 	}
 	
-	cout << "what is happening again...." << endl; 
-	cout << "match table size " << n << endl; 
+	//cout << "LIS" << endl; 
+
+	//cout << "what is happening again...." << endl; 
+	//cout << "match table size " << n << endl; 
 	vector<unsigned int> tailIndices(n, 0);
 	vector<unsigned int> prevIndices(n, -1);
 
 	int len = 1;
-	for (int i = 0; i < n; i++) {
-	if (get<1>(matches[i])< get<1>(matches[tailIndices[0]])) {
-		// new smallest value
-		tailIndices[0] = i;
-	} else if (get<1>(matches[i]) > get<1>(matches[tailIndices[len - 1]])) {
-		// matches[i].second wants to extend largest subsequence
-		prevIndices[i] = tailIndices[len - 1];
-		tailIndices[len++] = i;
-	} else {
-		int pos = CeilIndex(matches, tailIndices, -1, len - 1, get<1>(matches[i]));
+	for (int i = 1; i < n; i++) {
+		if (get<1>(matches[i])< get<1>(matches[tailIndices[0]])) {
+			// new smallest value
+			tailIndices[0] = i;
+		} else if (get<1>(matches[i]) > get<1>(matches[tailIndices[len - 1]])) {
+			// extend largest subsequence 
+			prevIndices[i] = tailIndices[len - 1];
+			tailIndices[len++] = i;
+		} else {
+			int pos = CeilIndex(matches, tailIndices, -1, len - 1, get<1>(matches[i]));
+			//cout << "%%%%%%%%%%%% pos: (rmb nid -1)" << pos << endl; 
+			prevIndices[i] = tailIndices[pos - 1];
+			tailIndices[pos] = i;
+		}
+		cout << i << "................" << endl; 
+		cout << "tail indicies" << endl; 
+		for (int i=0; i<tailIndices.size(); i++){
+			cout << tailIndices[i] << endl; 
+		}
 
-		prevIndices[i] = tailIndices[pos - 1];
-		tailIndices[pos] = i;
+		cout << "prev indicies" << endl ; 
+		for (int i=0; i<prevIndices.size();i++){
+			cout << prevIndices[i] << endl; 
+		}
 	}
+	if (len==1){
+		t_begin = get<1>(matches[0]);
+		q_begin = get<0>(matches[0]);
+		t_end = get<1>(matches[0]);
+		q_begin = get<0>(matches[0]);
+		return len; 
 	}
 
+	
+	cout << "match table size " << matches.size() << endl; 
+	cout << "len: " << len << endl;
+
+	
 	cout << "tail indicies" << endl; 
 	for (int i=0; i<tailIndices.size(); i++){
 		cout << tailIndices[i] << endl; 
@@ -356,21 +464,31 @@ int LongestIncreasingSubsequence(vector<tuple<unsigned int, unsigned int>> &matc
 	//cout << "prev indicies size" << prevIndices.size()<< endl;
 	//cout << "... ++" << prevIndices[1] << endl; 
 	//cout << "is the stupid t_begin" << endl; 
-	t_begin = get<1>(matches[prevIndices[1]]);
+	int marker; 
+	for (int i=1; i<prevIndices.size();i++){
+		if (prevIndices[i-1]==-1&&prevIndices[i]!=-1){
+			marker = i; 
+		}
+	}
+	t_begin = get<1>(matches[prevIndices[marker]]);
 	//cout << "flag 1" << endl; 
-	q_begin = get<0>(matches[prevIndices[1]]);
+	q_begin = get<0>(matches[prevIndices[marker]]);
+
 	//cout << "flag 2" << endl; 
 	t_end = get<1>(matches[tailIndices[len - 1]]);
 	//cout << "flag 3" << endl; 
 	q_end = get<0>(matches[tailIndices[len - 1]]);
-	//cout << "t_begin" << t_begin << endl;
-	//cout << "q_begin" << q_begin << endl; 
-	//cout  << "t_end" << t_end << endl; 
-	//cout << "q_end" << q_end << endl; 
-	//cout << "end..." << endl; 
 
+	/*
+	cout << "t_begin" << t_begin << endl;
+	cout << "q_begin" << q_begin << endl; 
+	cout  << "t_end" << t_end << endl; 
+	cout << "q_end" << q_end << endl; 
+	cout << "end..." << endl; 
+	cout << "len: " << len << endl; 
 	return len;
-}
+}*/
+
 string generatePAFString(string queryName,int queryLen, int queryStart, int queryEnd, 
 	string targetName, int targetLen, int targetStart, int targetEnd, int alignmentScore, 
 	int alignmentBlockLen, string* cigar){
@@ -388,7 +506,7 @@ string generatePAFString(string queryName,int queryLen, int queryStart, int quer
 }
 
 //can put in align function? maybe like overload or smth
-int getAlignmentBlockLength(string cigar){
+int getAlignmentBlockLength(string& cigar){
 	
 	int value=0,sum=0; 
 	bool prevIsNum = false; 
@@ -413,30 +531,40 @@ int getAlignmentBlockLength(string cigar){
 	return sum; 
 }
 
-string mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>>> allFragmentIndex, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex
+void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>>>& allFragmentIndex, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>& referenceIndex
 ,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i, bool cigarNeeded){
 	//std::unordered_mapper 
 	vector<tuple<unsigned int, unsigned int>> matchTable;
 	int t_begin, t_end, q_begin, q_end, lenLIS, result, alignmentRefLength, alignmentQueryLength; 
 	string cigar;
 	unsigned int target_begin; 
-	cout << "wtf is happening.."  << endl; 
+	//cout << "wtf is happening.."  << endl; 
 	//for each fragment 
 	matchTable = matchMinimizer(referenceIndex, get<1>(allFragmentIndex[i])); 
 
+	/*
 	//sort fragment position
 	if (matchTable.size()>1)
-		std::sort(matchTable.begin(), matchTable.end()); 
+		std::sort(matchTable.begin(), matchTable.end()); */
 	
-	cout << "wtf is happening. 1."  << endl; 
+	//cout << "wtf is happening. 1."  << endl; 
 	//find longest linear chain
-	lenLIS = LongestIncreasingSubsequence(matchTable, matchTable.size(), t_begin, t_end, q_begin, q_end);
+	lenLIS = LongestIncreasingSubsequence(matchTable, t_begin, t_end, q_begin, q_end);
 
 	alignmentRefLength = t_end-t_begin; 
 	alignmentQueryLength = q_end - q_begin; 
 
+	/*
+	cout << "ref: t_begin " << t_begin << endl; 
+	cout << "t_end " << t_end << endl; 
+	cout << "frag q_begin " << q_begin << endl; 
+	cout << "q_end" << q_end << endl; 
+
+
 	cout << "before alignment.." << endl; 	
-	if (lenLIS!=0 && alignmentRefLength<1000000){
+	cout  << "len of increaseing subsequence " << lenLIS << endl; 
+	cout << "alignment ref length " << alignmentRefLength << endl; */
+	if (lenLIS>1 && alignmentRefLength<200000){
 		//then do alignment (global alignment)
 		//can do in shortfragment, long fragment order
 		result = 
@@ -445,16 +573,18 @@ string mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<
 		Global,match,mismatch,gap,&cigar,&target_begin);  
 		//in PAF format
 		if (cigarNeeded)
-			return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), &cigar); 
+			cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), &cigar); 
 		else
-			return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), nullptr); 
+			cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), nullptr); 
 	}
+	//do case for 1
 	else{
+		//cout << "did it reach here?"  << endl; 
 		cigar=""; 
 		if (cigarNeeded)
-			return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), -1, -1, s1[0]->name, s1[0]->data.length(), -1, -1, 0, 0, &cigar);
+			cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), -1, -1, s1[0]->name, s1[0]->data.length(), -1, -1, 0, 0, &cigar);
 		else
-			return generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), -1, -1, s1[0]->name, s1[0]->data.length(), -1, -1, 0, 0, nullptr);
+			cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), -1, -1, s1[0]->name, s1[0]->data.length(), -1, -1, 0, 0, nullptr);
 	}
 	
 }
@@ -697,7 +827,7 @@ int main (int argc, char **argv){
 		cout << "fragment index size: "<< allFragmentIndex.size(); 
 
 		//allFragmentIndex.size()
-		for (int i =0; i< allFragmentIndex.size();i++){
+		for (int i =0; i<allFragmentIndex.size();i++){
 			cout << "sheme..." << endl; 
 			cout << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
 			cout << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
@@ -718,29 +848,21 @@ int main (int argc, char **argv){
 
 		cout << "------------------------------------------------------------------------------" << endl; 
 
-		for (int i=0; i<allFragmentIndex.size();i++){
-			cout << i << " --->" << mapping(allFragmentIndex, referenceIndex ,match, mismatch, gap, s1,shortFragments, i, cigarNeeded); 
-		}
+		//cout << "mapping .." << endl; 
 		
 		/*
+		for (int i=0 ; i<allFragmentIndex.size();i++){
+			cout << i << " --->" << mapping(allFragmentIndex, referenceIndex ,match, mismatch, gap, s1,shortFragments, i, cigarNeeded); 
+		}*/
+
+		
 		auto thread_pool = thread_pool::ThreadPool(t);
 
-		std::vector<std::future<string>> thread_futures;
-
-		//cout << "multi-threading" << endl; 
-
 		for (int i = 0; i < allFragmentIndex.size(); i++) {
-			thread_futures.emplace_back(
-			thread_pool.Submit(mapping, allFragmentIndex,referenceIndex,
-										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i, cigarNeeded));
-		}
 		
-		//cout << "after multi threading.." << endl; 
-
-		for (auto &it: thread_futures) {
-			auto paf = it.get();
-			cout << paf; 
-		}*/
+			thread_pool.Submit(mapping, allFragmentIndex,referenceIndex,
+										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i, cigarNeeded);
+		}
 
 	}
 	return 0;
