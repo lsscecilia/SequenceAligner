@@ -61,7 +61,7 @@ option(mapper_tests "tests" ON)
 
 if (mapper_tests)
 	include_directories(${CMAKE_SOURCE_DIR}/src)
-	add_executable(mapper_test test/alignmentTest.cpp)
+	add_executable(mapper_test test/testAlignmentMinimizer.cpp)
 	add_subdirectory(3rdparty/googletest EXCLUDE_FROM_ALL)
 	target_link_libraries(mapper_test alignment minimizer minimizer_binary utility gtest_main)
 	
