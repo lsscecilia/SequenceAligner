@@ -39,11 +39,11 @@ struct Sequence {
 
 
 void Help(){
-	cout << "some help command..." << endl;
+	cerr << "some help command..." << endl;
 };
 
 void ProjectVersion(){
-	cout << "v" << PROJECT_VER << endl;
+	cerr << "v" << PROJECT_VER << endl;
 };
 
 void PrintStats(const std::vector<std::unique_ptr<Sequence>>& fragments){
@@ -71,15 +71,15 @@ void PrintStats(const std::vector<std::unique_ptr<Sequence>>& fragments){
         }
     }
     
-    cout << "---------------Statistics---------------" << endl; 
-	cout << "Number of sequences: " <<  fragments.size() << std::endl;
-    cout << "Total length of all fragments: " << lengthAllFragments << std::endl;
-    cout << "Largest fragment: " << maxLengthFrag << std::endl;
-    cout << "  length: " << maxLength << std::endl;
-    cout << "Smallest fragment: " << minLengthFrag << std::endl;
-    cout << "   length: " << minLength << std::endl;
-    cout << "Average length: " << ((double) lengthAllFragments) / fragments.size() << std::endl;
-    cout << "N50 length: " << N50<< std::endl;
+    cerr << "---------------Statistics---------------" << endl; 
+	cerr << "Number of sequences: " <<  fragments.size() << std::endl;
+    cerr << "Total length of all fragments: " << lengthAllFragments << std::endl;
+    cerr << "Largest fragment: " << maxLengthFrag << std::endl;
+    cerr << "  length: " << maxLength << std::endl;
+    cerr << "Smallest fragment: " << minLengthFrag << std::endl;
+    cerr << "   length: " << minLength << std::endl;
+    cerr << "Average length: " << ((double) lengthAllFragments) / fragments.size() << std::endl;
+    cerr << "N50 length: " << N50<< std::endl;
 }; 
 
 void PrintAlignmentResult(
@@ -93,19 +93,19 @@ void PrintAlignmentResult(
 		unsigned int target_begin,
 		int alignmentScore){
 			
-			cout << "---------------Alignment---------------" << endl; 
-			cout << "Query: " << query << endl; 
-			cout << "Query len: " << query_len << endl; 
-			cout << "Target: " << target << endl; 
-			cout << "Target len: " << target_len << endl; 
-			cout << "Alignment type: " << type << endl; 
-			cout << "match: " << match << endl;
-			cout << "mismatch: " << mismatch << endl; 
-			cout << "gap: " << gap << endl << endl;
-			cout << "---------------Results---------------" << endl; 
-			cout << "alignment score: " << alignmentScore << endl;
-			cout << "taget begin: " << target_begin << endl << endl; 
-			//cout << "cigar: " << cigar << endl;
+			cerr << "---------------Alignment---------------" << endl; 
+			cerr << "Query: " << query << endl; 
+			cerr << "Query len: " << query_len << endl; 
+			cerr << "Target: " << target << endl; 
+			cerr << "Target len: " << target_len << endl; 
+			cerr << "Alignment type: " << type << endl; 
+			cerr << "match: " << match << endl;
+			cerr << "mismatch: " << mismatch << endl; 
+			cerr << "gap: " << gap << endl << endl;
+			cerr << "---------------Results---------------" << endl; 
+			cerr << "alignment score: " << alignmentScore << endl;
+			cerr << "taget begin: " << target_begin << endl << endl; 
+			//cerr << "cigar: " << cigar << endl;
 			
 }; 
 	
@@ -333,14 +333,17 @@ string generatePAFString(string queryName,int queryLen, int queryStart, int quer
 	string targetName, int targetLen, int targetStart, int targetEnd, int alignmentScore, 
 	int alignmentBlockLen, string* cigar){
 	string paf;
-	paf = "Query name: " + queryName + "\n"+ "Query len: " + to_string(queryLen) + " | Query start: " + to_string(queryStart)
-		+ " | Query end: " + to_string(queryEnd)  + "| relative strand: + " +"\n" + "Target name: " + targetName + "\n" + "Target start: " + to_string(targetStart)
-		+ " | Target end: " + to_string(targetEnd) + " | alignment score: " + to_string(alignmentScore) + " | alignment block len: " 
-		+ to_string(alignmentBlockLen) +"\n"; 
+	paf = queryName + "\t"+  to_string(queryLen) + "\t" + to_string(queryStart)
+		+ "\t" + to_string(queryEnd)  + "\t" + targetName + "\t" + to_string(targetStart)
+		+ "\t" + to_string(targetEnd) + "\t"+ to_string(alignmentScore) + "\t"
+		+ to_string(alignmentBlockLen); 
 	if (cigar!=nullptr){
-		paf += ("| cigar: " + *cigar + "\n"); 
+		paf += ("\t" + *cigar + "\n"); 
 	}
-	paf += "-----------------------------------------------------\n";   
+	else{
+		paf += "\n"; 
+	}
+	//paf += "-----------------------------------------------------\n";   
 
 	return paf; 
 }
@@ -386,7 +389,7 @@ void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tu
 	alignmentRefLength = t_end-t_begin; 
 	alignmentQueryLength = q_end - q_begin; 
 
-	if (lenLIS>1 && alignmentRefLength<200000){
+	if (lenLIS>1 && alignmentRefLength<100000){
 		result = 
 		Align(shortFragments[i]->data.substr(q_begin,q_end).c_str(),
 		(unsigned int) q_end - q_begin, s1[0]->data.substr(t_begin,t_end).c_str(),(unsigned int) t_end-t_begin,
@@ -397,7 +400,7 @@ void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tu
 		else
 			cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), nullptr); 
 	}
-	else{
+	else {
 		cigar=""; 
 		if (cigarNeeded)
 			cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), -1, -1, s1[0]->name, s1[0]->data.length(), -1, -1, 0, 0, &cigar);
@@ -531,7 +534,7 @@ int main (int argc, char **argv){
 		
 		for (int i=0; i< s2.size(); i++){
 			if (&s2[i]==nullptr){
-				cout << "null pointer" << endl;
+				cerr << "null pointer" << endl;
 			} 
 			if (s2[i]->data.size() < 5000) {
 				shortFragments.emplace_back(std::move(s2[i]));
@@ -622,51 +625,55 @@ int main (int argc, char **argv){
 		int referenceSingletonCount=getSingletonCount(occurrencesReferenceIndex);
 		//print result
 		
-		cout << "------------------------------------------------------------------------------" << endl; 
-		cout << "In reference genome: " << endl; 
-		cout << "num minimizer:" << referenceIndex.size() << endl;
-		cout << "num singleton: " << referenceSingletonCount << endl; 
-		cout << "Singleton Fraction of refence genome: " << (float) referenceSingletonCount/referenceIndex.size() << endl;
-		cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesReferenceIndex) << endl;
+		cerr << "------------------------------------------------------------------------------" << endl; 
+		cerr << "In reference genome: " << endl; 
+		cerr << "num minimizer:" << referenceIndex.size() << endl;
+		cerr << "num singleton: " << referenceSingletonCount << endl; 
+		cerr << "Singleton Fraction of refence genome: " << (float) referenceSingletonCount/referenceIndex.size() << endl;
+		cerr << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesReferenceIndex) << endl;
 		ignoreTooFrequentMinimizer(f, occurrencesReferenceIndex, referenceIndex); 
 
 		int fragmentSingletonCount; 
-		cout << "fragment index size: "<< allFragmentIndex.size(); 
+		cerr << "fragment index size: "<< allFragmentIndex.size(); 
 
 		for (int i =0; i<allFragmentIndex.size();i++){
-			cout << "sheme..." << endl; 
-			cout << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
-			cout << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
+			cerr << "sheme..." << endl; 
+			cerr << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
+			cerr << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
 			occurrencesFragmentIndex = getOccurrences(get<1>(allFragmentIndex[i]));
-			cout << "$$ occurance fragment index" << occurrencesFragmentIndex.size() << endl; 
+			cerr << "$$ occurance fragment index" << occurrencesFragmentIndex.size() << endl; 
 			fragmentSingletonCount = getSingletonCount(occurrencesFragmentIndex);
-			cout << "------------------------------------------------------------------------------" << endl; 
-			cout << i << endl;
-			cout << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
-			cout << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
-			cout << "num singleton: " << fragmentSingletonCount << endl; 
-			cout << "Singleton Fraction of refence genome: " << (float) fragmentSingletonCount/get<1>(allFragmentIndex[i]).size()  << endl;
-			cout << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesFragmentIndex) << endl;
+			cerr << "------------------------------------------------------------------------------" << endl; 
+			cerr << i << endl;
+			cerr << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
+			cerr << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
+			cerr << "num singleton: " << fragmentSingletonCount << endl; 
+			cerr << "Singleton Fraction of refence genome: " << (float) fragmentSingletonCount/get<1>(allFragmentIndex[i]).size()  << endl;
+			cerr << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesFragmentIndex) << endl;
 
 			//ignore too frequent minimizer
 			ignoreTooFrequentMinimizer(f, occurrencesFragmentIndex, get<1>(allFragmentIndex[i])); 
 		}
 
-		cout << "------------------------------------------------------------------------------" << endl; 
+		cerr << "------------------------------------------------------------------------------" << endl; 
 		
 		//without multithreading 
 		/*
 		for (int i=0 ; i<allFragmentIndex.size();i++){
-			cout << i << " --->" << mapping(allFragmentIndex, referenceIndex ,match, mismatch, gap, s1,shortFragments, i, cigarNeeded); 
+			cerr << i << " --->" << mapping(allFragmentIndex, referenceIndex ,match, mismatch, gap, s1,shortFragments, i, cigarNeeded); 
 		}*/
 
 		
 		auto thread_pool = thread_pool::ThreadPool(t);
+		std::vector<std::future<void>> void_futures;
 
 		for (int i = 0; i < allFragmentIndex.size(); i++) {
-		
-			thread_pool.Submit(mapping, allFragmentIndex,referenceIndex,
-										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i, cigarNeeded);
+			void_futures.emplace_back(thread_pool.Submit(mapping, std::ref(allFragmentIndex),std::ref(referenceIndex),
+										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i, cigarNeeded));
+		}
+
+		for (const auto& it : void_futures) {
+			it.wait();
 		}
 
 	}
