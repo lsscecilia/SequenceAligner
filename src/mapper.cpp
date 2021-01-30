@@ -348,9 +348,9 @@ string generatePAFString(string queryName,int queryLen, int queryStart, int quer
 	return paf; 
 }
 
-int getAlignmentBlockLength(string& cigar){
+void getAlignmentBlockLengthAndMatchLength(string& cigar, int *abl, int *ml){
 	
-	int value=0,sum=0; 
+	int value=0,sum=0, match =0 ; 
 	bool prevIsNum = false; 
 	for (int i=0; i < cigar.length(); i++ ){ 
 
@@ -368,17 +368,23 @@ int getAlignmentBlockLength(string& cigar){
 				sum += value; 
 				prevIsNum=false; 
 			}
+
+			if (cigar[i]=='m'){
+				match += value; 
+			} 
 		}
 	}
-	return sum; 
+	*abl = sum; 
+	*ml = match; 
 }
 
 void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>>>& allFragmentIndex, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>& referenceIndex
-,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i, bool cigarNeeded){
+,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i, bool cigarNeeded, int kmer_len){
 	vector<tuple<unsigned int, unsigned int>> matchTable;
 	int t_begin, t_end, q_begin, q_end, lenLIS, result, alignmentRefLength, alignmentQueryLength; 
 	string cigar;
 	unsigned int target_begin; 
+	int matchLength, alignmentBlockLen, overlapLen; 
 	
 	//for each fragment 
 	matchTable = matchMinimizer(referenceIndex, get<1>(allFragmentIndex[i])); 
@@ -389,23 +395,27 @@ void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tu
 	alignmentRefLength = t_end-t_begin; 
 	alignmentQueryLength = q_end - q_begin; 
 
-	if (lenLIS>1 && alignmentRefLength<100000){
+	if (lenLIS>0 && alignmentRefLength<100000 && cigarNeeded){
 		result = 
 		Align(shortFragments[i]->data.substr(q_begin,q_end).c_str(),
 		(unsigned int) q_end - q_begin, s1[0]->data.substr(t_begin,t_end).c_str(),(unsigned int) t_end-t_begin,
 		Global,match,mismatch,gap,&cigar,&target_begin);  
+
+		//get match length and alignment block len 
+		getAlignmentBlockLengthAndMatchLength(cigar, &alignmentBlockLen, &matchLength); 
+
 		//in PAF format
-		if (cigarNeeded)
-			cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), &cigar); 
-		else
-			cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, result, getAlignmentBlockLength(cigar), nullptr); 
+		cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, matchLength,alignmentBlockLen, &cigar); 
+	}
+	else if (!cigarNeeded || alignmentRefLength>=100000  ){
+		//no need alignment 
+		//lenLIS*k for num of seq matches
+		//num of sequence matches --> overlap length
+		overlapLen = max(alignmentQueryLength, alignmentRefLength);
+		cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, lenLIS*kmer_len, overlapLen, nullptr); 
 	}
 	else {
-		cigar=""; 
-		if (cigarNeeded)
-			cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), -1, -1, s1[0]->name, s1[0]->data.length(), -1, -1, 0, 0, &cigar);
-		else
-			cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), -1, -1, s1[0]->name, s1[0]->data.length(), -1, -1, 0, 0, nullptr);
+		cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), -1, -1, s1[0]->name, s1[0]->data.length(), -1, -1, 0, 0, nullptr);
 	}
 	
 }
@@ -669,7 +679,7 @@ int main (int argc, char **argv){
 
 		for (int i = 0; i < allFragmentIndex.size(); i++) {
 			void_futures.emplace_back(thread_pool.Submit(mapping, std::ref(allFragmentIndex),std::ref(referenceIndex),
-										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i, cigarNeeded));
+										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i, cigarNeeded, kmer_len));
 		}
 
 		for (const auto& it : void_futures) {
