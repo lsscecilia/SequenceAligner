@@ -39,7 +39,29 @@ struct Sequence {
 
 
 void Help(){
-	cerr << "some help command..." << endl;
+	bprinter::TablePrinter tp(&std::cout);
+	tp.AddColumn("command", 10);
+	tp.AddColumn("explanation", 30);
+	tp.AddColumn("parameter needed?", 10);
+	tp.AddColumn("default values", 20); 
+	//"vhc:a:m:n:g:k:w:t:f:",
+	tp.PrintHeader();
+	tp << "v" << "version" << "no" << "";
+	tp << "c" << "alignment for frag size" << "no" <<""; 
+	tp << "" << "< 5000, cigar printed"<< ""<<""; 
+	tp << "k" <<"kmer len" << "yes" << "15";
+	tp << "w" << "window len" << "yes" << "5";  
+	tp << "a" << "alignment type: "<< "yes" << "0"; 
+	tp << "" << "0 for global"<< ""<<"";
+	tp << "" << "1 for local"<< ""<<"";
+	tp << "" << "2 for semi-global"<< ""<<"";
+	tp << "m" << "match score" << "yes" << "1"; 
+	tp << "n" << "mismatch score" << "yes" << "-1"; 
+	tp << "g" << "gap penalty" << "yes" << "0"; 
+	tp << "t" << "number of threads" << "yes" << "5"; 
+	tp << "f" <<  "top frequent minimizer not" << "yes" << "0.001"; 
+	tp << "" <<"taken into consideration"<<""<<"";
+	tp.PrintFooter();
 };
 
 void ProjectVersion(){
@@ -334,7 +356,7 @@ string generatePAFString(string queryName,int queryLen, int queryStart, int quer
 	int alignmentBlockLen, string* cigar){
 	string paf;
 	paf = queryName + "\t"+  to_string(queryLen) + "\t" + to_string(queryStart)
-		+ "\t" + to_string(queryEnd)  + "\t" + targetName + "\t" + to_string(targetStart)
+		+ "\t" + to_string(queryEnd)  + "\t" + targetName + "\t" + to_string(targetLen) + to_string(targetStart)
 		+ "\t" + to_string(targetEnd) + "\t"+ to_string(alignmentScore) + "\t"
 		+ to_string(alignmentBlockLen); 
 	if (cigar!=nullptr){
@@ -379,7 +401,7 @@ void getAlignmentBlockLengthAndMatchLength(string& cigar, int *abl, int *ml){
 }
 
 void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>>>& allFragmentIndex, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>& referenceIndex
-,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i, bool cigarNeeded, int kmer_len){
+,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i, int index, bool cigarNeeded, int kmer_len){
 	vector<tuple<unsigned int, unsigned int>> matchTable;
 	int t_begin, t_end, q_begin, q_end, lenLIS, result, alignmentRefLength, alignmentQueryLength; 
 	string cigar;
@@ -387,7 +409,7 @@ void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tu
 	int matchLength, alignmentBlockLen, overlapLen; 
 	
 	//for each fragment 
-	matchTable = matchMinimizer(referenceIndex, get<1>(allFragmentIndex[i])); 
+	matchTable = matchMinimizer(referenceIndex, get<1>(allFragmentIndex[index])); 
 
 	//find longest linear chain
 	lenLIS = LongestIncreasingSubsequence(matchTable, t_begin, t_end, q_begin, q_end);
@@ -395,7 +417,7 @@ void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tu
 	alignmentRefLength = t_end-t_begin; 
 	alignmentQueryLength = q_end - q_begin; 
 
-	if (lenLIS>0 && alignmentRefLength<100000 && cigarNeeded){
+	if (lenLIS>0 && alignmentRefLength<100000 && cigarNeeded && shortFragments[i]->data.length() < 5000){
 		result = 
 		Align(shortFragments[i]->data.substr(q_begin,q_end).c_str(),
 		(unsigned int) q_end - q_begin, s1[0]->data.substr(t_begin,t_end).c_str(),(unsigned int) t_end-t_begin,
@@ -407,7 +429,7 @@ void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tu
 		//in PAF format
 		cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, matchLength,alignmentBlockLen, &cigar); 
 	}
-	else if (!cigarNeeded || alignmentRefLength>=100000  ){
+	else if (!cigarNeeded || alignmentRefLength>=50000 || shortFragments[i]->data.length() >= 5000 ){
 		//no need alignment 
 		//lenLIS*k for num of seq matches
 		//num of sequence matches --> overlap length
@@ -613,14 +635,17 @@ int main (int argc, char **argv){
 		getMinimizer(s1[0], &referenceIndex, kmer_len, window_len); 
 
 		//fragments genome index
-		/*
-		for (int i=0; i<longFragments.size();i++){
-			getMinimizer(longFragments[i], &fragmentIndex, kmer_len, window_len); 
-		}*/
-
 		vector<tuple<std::string, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>>> allFragmentIndex;
+		
+		for (int i=0; i<longFragments.size();i++){
+			cout << i<<"getting long fragments..." << endl; 
+			fragmentIndex.clear(); 
+			getMinimizer(longFragments[i], &fragmentIndex, kmer_len, window_len); 
+			allFragmentIndex.emplace_back(make_tuple(longFragments[i]->name, fragmentIndex)); 
+		}
 
 		for (int i=0; i<shortFragments.size();i++){
+			cout << i<<" getting short fragments..." << endl; 
 			fragmentIndex.clear(); 
 
 			getMinimizer(shortFragments[i], &fragmentIndex, kmer_len, window_len);
@@ -647,11 +672,9 @@ int main (int argc, char **argv){
 		cerr << "fragment index size: "<< allFragmentIndex.size(); 
 
 		for (int i =0; i<allFragmentIndex.size();i++){
-			cerr << "sheme..." << endl; 
 			cerr << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
 			cerr << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
 			occurrencesFragmentIndex = getOccurrences(get<1>(allFragmentIndex[i]));
-			cerr << "$$ occurance fragment index" << occurrencesFragmentIndex.size() << endl; 
 			fragmentSingletonCount = getSingletonCount(occurrencesFragmentIndex);
 			cerr << "------------------------------------------------------------------------------" << endl; 
 			cerr << i << endl;
@@ -677,9 +700,16 @@ int main (int argc, char **argv){
 		auto thread_pool = thread_pool::ThreadPool(t);
 		std::vector<std::future<void>> void_futures;
 
-		for (int i = 0; i < allFragmentIndex.size(); i++) {
+		for (int i = 0; i < longFragments.size(); i++) {
 			void_futures.emplace_back(thread_pool.Submit(mapping, std::ref(allFragmentIndex),std::ref(referenceIndex),
-										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i, cigarNeeded, kmer_len));
+										 match, mismatch, gap, std::ref(s1),std::ref(longFragments), i, i, cigarNeeded, kmer_len));
+		}
+
+		int tableIndex; 
+		for (int i = 0; i < shortFragments.size(); i++) {
+			tableIndex = longFragments.size()+i; 
+			void_futures.emplace_back(thread_pool.Submit(mapping, std::ref(allFragmentIndex),std::ref(referenceIndex),
+										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i,tableIndex, cigarNeeded, kmer_len));
 		}
 
 		for (const auto& it : void_futures) {
