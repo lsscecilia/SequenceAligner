@@ -429,7 +429,7 @@ void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tu
 		//in PAF format
 		cout << generatePAFString(shortFragments[i]->name, shortFragments[i]->data.length(), q_begin, q_end, s1[0]->name, s1[0]->data.length(), t_begin, t_end, matchLength,alignmentBlockLen, &cigar); 
 	}
-	else if (!cigarNeeded || alignmentRefLength>=50000 || shortFragments[i]->data.length() >= 5000 ){
+	else if (!cigarNeeded || alignmentRefLength>=100000 || shortFragments[i]->data.length() >= 5000 ){
 		//no need alignment 
 		//lenLIS*k for num of seq matches
 		//num of sequence matches --> overlap length
@@ -638,16 +638,13 @@ int main (int argc, char **argv){
 		vector<tuple<std::string, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>>> allFragmentIndex;
 		
 		for (int i=0; i<longFragments.size();i++){
-			cout << i<<"getting long fragments..." << endl; 
 			fragmentIndex.clear(); 
 			getMinimizer(longFragments[i], &fragmentIndex, kmer_len, window_len); 
 			allFragmentIndex.emplace_back(make_tuple(longFragments[i]->name, fragmentIndex)); 
 		}
 
 		for (int i=0; i<shortFragments.size();i++){
-			cout << i<<" getting short fragments..." << endl; 
 			fragmentIndex.clear(); 
-
 			getMinimizer(shortFragments[i], &fragmentIndex, kmer_len, window_len);
 			allFragmentIndex.emplace_back(make_tuple(shortFragments[i]->name, fragmentIndex)); 
 		}
