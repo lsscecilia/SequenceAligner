@@ -356,17 +356,15 @@ string generatePAFString(string queryName,int queryLen, int queryStart, int quer
 	int alignmentBlockLen, string* cigar){
 	string paf;
 	paf = queryName + "\t"+  to_string(queryLen) + "\t" + to_string(queryStart)
-		+ "\t" + to_string(queryEnd)  + "\t" + targetName + "\t" + to_string(targetLen) + to_string(targetStart)
+		+ "\t" + to_string(queryEnd)  + "\t"+" + " +"\t"+ targetName + "\t" + to_string(targetLen) + "\t"+ to_string(targetStart)
 		+ "\t" + to_string(targetEnd) + "\t"+ to_string(alignmentScore) + "\t"
-		+ to_string(alignmentBlockLen); 
+		+ to_string(alignmentBlockLen) + "\t" + "0"; 
 	if (cigar!=nullptr){
-		paf += ("\t" + *cigar + "\n"); 
+		paf+= ("\t" + *cigar + "\n"); 
 	}
 	else{
 		paf += "\n"; 
 	}
-	//paf += "-----------------------------------------------------\n";   
-
 	return paf; 
 }
 
