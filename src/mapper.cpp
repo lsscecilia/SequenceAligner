@@ -400,16 +400,19 @@ void getAlignmentBlockLengthAndMatchLength(string& cigar, int *abl, int *ml){
 	*ml = match; 
 }
 
-void mapping(vector<tuple<std::string, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>>>& allFragmentIndex, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>& referenceIndex
-,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i, int index, bool cigarNeeded, int kmer_len){
+void mapping( std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>& referenceIndex
+,int match,int mismatch,int gap, std::vector<std::unique_ptr<Sequence>>& s1, std::vector<std::unique_ptr<Sequence>>& shortFragments, int i, bool cigarNeeded, int kmer_len, int window_len){
 	vector<tuple<unsigned int, unsigned int>> matchTable;
 	int t_begin, t_end, q_begin, q_end, lenLIS, result, alignmentRefLength, alignmentQueryLength; 
 	string cigar;
 	unsigned int target_begin; 
 	int matchLength, alignmentBlockLen, overlapLen; 
-	
+	//get index table first
+	std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> fragmentIndex; 
+	getMinimizer(shortFragments[i], &fragmentIndex, kmer_len, window_len);
+
 	//for each fragment 
-	matchTable = matchMinimizer(referenceIndex, get<1>(allFragmentIndex[index])); 
+	matchTable = matchMinimizer(referenceIndex, fragmentIndex); 
 
 	//find longest linear chain
 	lenLIS = LongestIncreasingSubsequence(matchTable, t_begin, t_end, q_begin, q_end);
@@ -628,29 +631,14 @@ int main (int argc, char **argv){
 	
 		//find distinct 
 
-		std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex, fragmentIndex; 
+		std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>> referenceIndex; 
 		std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>::iterator it;
 
 		//reference genome index
 		getMinimizer(s1[0], &referenceIndex, kmer_len, window_len); 
 
-		//fragments genome index
-		vector<tuple<std::string, std::unordered_map<unsigned int,vector<tuple<unsigned int,bool>>>>> allFragmentIndex;
-		
-		for (int i=0; i<longFragments.size();i++){
-			fragmentIndex.clear(); 
-			getMinimizer(longFragments[i], &fragmentIndex, kmer_len, window_len); 
-			allFragmentIndex.emplace_back(make_tuple(longFragments[i]->name, fragmentIndex)); 
-		}
-
-		for (int i=0; i<shortFragments.size();i++){
-			fragmentIndex.clear(); 
-			getMinimizer(shortFragments[i], &fragmentIndex, kmer_len, window_len);
-			allFragmentIndex.emplace_back(make_tuple(shortFragments[i]->name, fragmentIndex)); 
-		}
-
 		//occurrences 
-		vector<tuple<int, unsigned int>> occurrencesReferenceIndex, occurrencesFragmentIndex;
+		vector<tuple<int, unsigned int>> occurrencesReferenceIndex;
 		occurrencesReferenceIndex = getOccurrences(referenceIndex); 
 
 		//singleton count
@@ -664,27 +652,6 @@ int main (int argc, char **argv){
 		cerr << "Singleton Fraction of refence genome: " << (float) referenceSingletonCount/referenceIndex.size() << endl;
 		cerr << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesReferenceIndex) << endl;
 		ignoreTooFrequentMinimizer(f, occurrencesReferenceIndex, referenceIndex); 
-
-		int fragmentSingletonCount; 
-		cerr << "fragment index size: "<< allFragmentIndex.size(); 
-
-		for (int i =0; i<allFragmentIndex.size();i++){
-			cerr << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
-			cerr << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
-			occurrencesFragmentIndex = getOccurrences(get<1>(allFragmentIndex[i]));
-			fragmentSingletonCount = getSingletonCount(occurrencesFragmentIndex);
-			cerr << "------------------------------------------------------------------------------" << endl; 
-			cerr << i << endl;
-			cerr << "fragment name:" <<  get<0>(allFragmentIndex[i])<< endl; 
-			cerr << "num minimizer:" << get<1>(allFragmentIndex[i]).size() << endl;
-			cerr << "num singleton: " << fragmentSingletonCount << endl; 
-			cerr << "Singleton Fraction of refence genome: " << (float) fragmentSingletonCount/get<1>(allFragmentIndex[i]).size()  << endl;
-			cerr << "number of occurrences of the most frequent minimizer: " << getNumOccurrencesMostFrequentMinimizer(f,occurrencesFragmentIndex) << endl;
-
-			//ignore too frequent minimizer
-			ignoreTooFrequentMinimizer(f, occurrencesFragmentIndex, get<1>(allFragmentIndex[i])); 
-		}
-
 		cerr << "------------------------------------------------------------------------------" << endl; 
 		
 		//without multithreading 
@@ -698,15 +665,15 @@ int main (int argc, char **argv){
 		std::vector<std::future<void>> void_futures;
 
 		for (int i = 0; i < longFragments.size(); i++) {
-			void_futures.emplace_back(thread_pool.Submit(mapping, std::ref(allFragmentIndex),std::ref(referenceIndex),
-										 match, mismatch, gap, std::ref(s1),std::ref(longFragments), i, i, cigarNeeded, kmer_len));
+			void_futures.emplace_back(thread_pool.Submit(mapping,std::ref(referenceIndex),
+										 match, mismatch, gap, std::ref(s1),std::ref(longFragments), i,cigarNeeded, kmer_len, window_len));
 		}
 
 		int tableIndex; 
 		for (int i = 0; i < shortFragments.size(); i++) {
 			tableIndex = longFragments.size()+i; 
-			void_futures.emplace_back(thread_pool.Submit(mapping, std::ref(allFragmentIndex),std::ref(referenceIndex),
-										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i,tableIndex, cigarNeeded, kmer_len));
+			void_futures.emplace_back(thread_pool.Submit(mapping,std::ref(referenceIndex),
+										 match, mismatch, gap, std::ref(s1),std::ref(shortFragments), i, cigarNeeded, kmer_len, window_len));
 		}
 
 		for (const auto& it : void_futures) {

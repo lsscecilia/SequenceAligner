@@ -6,12 +6,11 @@ project(mapper VERSION "1.0")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(BINARY ${CMAKE_PROJECT_NAME})
 set(SOURCE src/alignment.cpp src/mapper.cpp src/minimizer.cpp src/minimizer_binary.cpp src/utility.cpp)
 set(CONFIGURE_FILE src/config.h.in)
-set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})	
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 
 #set executable
 add_executable(${PROJECT_NAME} ${SOURCE}) 
