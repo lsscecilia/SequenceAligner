@@ -1,4 +1,4 @@
-[![Build Status](https://www.travis-ci.com/lsscecilia/mapper.svg?branch=master)](https://www.travis-ci.com/lsscecilia/mapper)
+[![Build Status](https://travis-ci.com/lsscecilia/SequenceAligner.svg?branch=master)](https://travis-ci.com/lsscecilia/SequenceAligner)
 
 # BSc project (computer science - 2020/2021)
 
